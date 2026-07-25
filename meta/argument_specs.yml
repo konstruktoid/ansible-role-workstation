@@ -4,9 +4,9 @@ argument_specs:
     short_description: Developer workstation installation and hardening for Ubuntu Resolute
     description:
       - >-
-        Applies the fifteen C(konstruktoid.hardening) roles listed in C(ansible-roles), then installs
-        developer tooling (Docker Engine, uv, Node.js/npm, the Claude Code CLI, tox, the GitHub CLI, and
-        the C(copilot.vim) plugin).
+        Applies the fifteen C(konstruktoid.hardening) roles included by C(tasks/hardening.yml), then
+        installs developer tooling (Docker Engine, uv, Node.js/npm, the Claude Code CLI, tox, the
+        GitHub CLI, and the C(copilot.vim) plugin).
     options:
       workstation_user:
         type: str

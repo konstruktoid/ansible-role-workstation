@@ -8,15 +8,23 @@ Apply these rules to workflow definitions (`lint.yml`, `molecule.yml`, `issues.y
 `dependency-review.yml`, `slsa.yml`).
 
 ## Security-first workflow design
-- Use least-privilege `permissions` at workflow/job scope; avoid implicit broad defaults (all current
-  workflows set `permissions: contents: read` at the top level — keep new/edited jobs consistent with
-  that, only widening a specific job when strictly required, as `slsa.yml`'s release job does for
-  `contents: write`).
+- Use least-privilege `permissions` at workflow/job scope; avoid implicit broad defaults. Every
+  workflow declares a top-level `permissions` block — `contents: read` everywhere except
+  `scorecards.yml`, which needs `read-all` for the analysis. Keep new or edited jobs consistent with
+  that, only widening a specific job when strictly required, as `issues.yml` does for `issues: write`
+  and `slsa.yml`'s provenance and release jobs do for `id-token: write` and `contents: write`.
 - Keep triggers narrow (`branches`, `paths`, event types) and avoid unnecessary execution scope.
 - Pin third-party actions to a commit SHA (existing pattern: `uses: owner/action@<sha> # vX.Y.Z`) —
-  never introduce an unpinned `@main`/`@vX` reference for a third-party action.
-- Treat all PR metadata, issue content, artifact contents, and external inputs as untrusted.
+  never introduce an unpinned `@main`/`@vX` reference for a third-party action. Every third-party
+  action in this repo is currently SHA-pinned and kept current by the `github-actions` Dependabot
+  ecosystem in `.github/dependabot.yml`; the reusable `slsa-github-generator` workflow is the sole
+  tag-referenced exception, since a reusable workflow call must resolve a ref the generator supports.
+- Treat all PR metadata, issue content, artifact contents, and external inputs as untrusted. Do not
+  interpolate `${{ github.* }}` expressions directly into a `run:` script — read the equivalent
+  `GITHUB_*` environment variable instead, as the `Resolve the repository name` steps in `slsa.yml` do.
 - Keep `step-security/harden-runner` as the first step of every job, as done throughout this repo.
+- Set `persist-credentials: false` on `actions/checkout` unless a later step genuinely needs to push
+  with the job's credentials; no workflow in this repo does.
 
 ## Secrets and token handling
 - Never hardcode secrets or tokens.
@@ -33,13 +41,21 @@ Apply these rules to workflow definitions (`lint.yml`, `molecule.yml`, `issues.y
 - Treat caches as potentially attacker-influenced; scope keys defensively.
 
 ## Reliability and safety defaults
-- Set explicit `timeout-minutes` on new jobs.
-- Use `concurrency` to prevent unsafe overlap when a workflow has deployment/release side effects
-  (notably `slsa.yml`).
+- Set explicit `timeout-minutes` on every job; all current jobs declare one, so a new job without it
+  is a regression rather than an omission.
+- Use `concurrency` to prevent unsafe overlap. `lint.yml`, `molecule.yml` and `dependency-review.yml`
+  group on `${{ github.workflow }}-${{ github.ref }}` with `cancel-in-progress: true`; `slsa.yml` uses
+  the same group with `cancel-in-progress: false`, so a release-provenance run is never cancelled
+  midway.
 - Keep scripts short, fail-fast, and explicit (`set -euo pipefail` for bash steps where appropriate).
+- Do not assume a directory exists just because the standard Ansible role layout defines it — this
+  role has no `handlers/` or `templates/` directory, which is what previously broke the `slsa.yml`
+  build step. Guard filesystem traversal with an existence check.
 - Avoid curl-pipe-to-shell patterns; download, verify, then execute — mirror the checksum-verification
   discipline used for the `uv` release archive in `tasks/uv.yml` and the `shasums` values in
   `defaults/main.yml`, or the signed apt-repository pattern used for Docker Engine and the GitHub CLI.
+  In workflows, prefer a SHA-pinned setup action over an upstream install script: `molecule.yml`
+  installs `uv` through `astral-sh/setup-uv` rather than piping `astral.sh/uv/install.sh` into a shell.
 
 ## Review priorities
 1. Privilege model (`permissions`, token use, OIDC/release scope in `slsa.yml`)

@@ -10,12 +10,21 @@ secure-by-default, operationally reliable, maintainable, and auditable changes.
 - Ubuntu Resolute (26.04) is the only supported platform. Do not add OS-conditional branches for other
   distributions or reintroduce multi-OS support without an explicit request.
 - The role has two halves: `tasks/hardening.yml`, which includes the fifteen
-  `konstruktoid.hardening.*` roles listed in `ansible-roles`, and `tasks/{packages,docker,uv,npm,tox,
-  github_cli,copilot_vim}.yml`, which install the developer tooling captured in `install-log`. Keep
-  that separation; do not fold hardening logic into the tool-installation tasks or vice versa.
+  `konstruktoid.hardening.*` roles, and `tasks/{packages,docker,uv,npm,tox,github_cli,copilot_vim}.yml`,
+  which install the developer tooling. Keep that separation; do not fold hardening logic into the
+  tool-installation tasks or vice versa. `tasks/hardening.yml` and `tasks/main.yml` are the
+  authoritative lists of what the role applies — there is no separate manifest file.
 - Every hardening role and every tool installation must remain independently toggleable through its
   own `workstation_harden_*` or `workstation_*_install` variable. Never collapse these into a single
   switch.
+- `playbook.yml` sets `become_exe: sudo.ws` deliberately. Ubuntu Resolute points `/usr/bin/sudo` at
+  `sudo-rs`, whose password prompt ansible-core does not recognise, so `become` tasks hang and fail
+  with "Timed out waiting for become success"; `sudo.ws` is the classic sudo binary the `sudo` package
+  registers with `update-alternatives`. It is not a typo for `sudo` — do not "correct" it, and keep it
+  in the README's playbook example. The upstream fix (ansible/ansible#86175, for issue
+  ansible/ansible#85837) is merged in `devel` but not backported, so it is absent from every
+  ansible-core release this role supports; the setting can be dropped once the minimum supported
+  version includes it.
 - Prefer minimal, reviewable, reversible diffs.
 
 ## Engineering expectations
@@ -100,7 +109,14 @@ secure-by-default, operationally reliable, maintainable, and auditable changes.
 
 - Explain security rationale and operational impact for sensitive changes.
 - Note any intentional deviation from the security-first, minimal-`become` intent of the role.
-- Keep the README's "Role variables" table in sync with `defaults/main.yml`.
+- Every role variable is declared in three places that must be changed together: `defaults/main.yml`,
+  the matching option in `meta/argument_specs.yml` (type and default), and the README's "Role
+  variables" table. A variable added or renamed in only one of them is a defect — `argument_specs.yml`
+  is validated at run time, so a stale entry there fails the play rather than merely drifting.
+- `molecule/default/verify.yml` re-declares several role and `konstruktoid.hardening.*` defaults in its
+  own `vars:` block, because verify runs as a separate `ansible-playbook` invocation that cannot see
+  them. Changing a value it mirrors (notably `workstation_uv_release`, `workstation_packages`, and
+  `workstation_docker_packages`) requires updating that block in the same change.
 
 ## Review expectations
 

@@ -1,4 +1,5 @@
 ---
+# See https://github.com/ansible/ansible/issues/85837
 - name: Configure the local workstation
   hosts: localhost
   become_exe: sudo.ws
