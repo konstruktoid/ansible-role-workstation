@@ -23,11 +23,13 @@ documented clearly.
 1. Read `defaults/main.yml`, `tasks/main.yml`, and `meta/main.yml`, plus `requirements.yml` for
    collection dependencies. `tasks/main.yml` imports the other `tasks/*.yml` files in order — trace
    which ones apply to the change:
-   - `hardening.yml` includes the fifteen `konstruktoid.hardening.*` roles listed in `ansible-roles`,
-     each gated by its own `workstation_harden_*` toggle.
+   - `hardening.yml` includes the fifteen `konstruktoid.hardening.*` roles, each gated by its own
+     `workstation_harden_*` toggle.
    - `packages.yml`, `docker.yml`, `uv.yml`, `npm.yml`, `tox.yml`, `github_cli.yml`, and
-     `copilot_vim.yml` install the developer tooling captured in `install-log`, each gated by its own
-     `workstation_*_install` toggle.
+     `copilot_vim.yml` install the developer tooling, each gated by its own `workstation_*_install`
+     toggle.
+   These two files are the authoritative inventory of what the role does; there is no separate
+   manifest of hardening roles or tools to cross-check against.
 2. This role targets Ubuntu Resolute (26.04) exclusively — do not add OS-conditional branches for other
    distributions or reintroduce multi-OS support without an explicit request.
 
@@ -58,18 +60,27 @@ documented clearly.
    Do not change quoting/formatting purely for spec-purity if it would fight `ansible-lint`'s
    `production` profile or the repo's `.ansible-lint` rules — those take precedence on any conflict.
 6. Follow the existing conventions and patterns in the codebase: naming, file structure, and style.
-7. If a `defaults/main.yml` variable is added, renamed, or removed, update the "Role variables" block
-   in `README.md` to match.
+7. If a `defaults/main.yml` variable is added, renamed, retyped, or removed, update both the matching
+   option in `meta/argument_specs.yml` and the "Role variables" table in `README.md` to match. The
+   argument specification is validated at run time, so a default that has drifted from its spec fails
+   the play instead of merely being out of date.
 8. If a pinned tool release (`workstation_uv_release`, or a similar version pin added later) changes,
    update the matching `shasums` entry in `defaults/main.yml` alongside the version/URL variables.
    Verify new checksums against the upstream project's published checksums before committing them.
 9. Add or update test coverage for the change:
    - `molecule/default/converge.yml` and `molecule/docker/molecule.yml` (which reuses
-     `../default/converge.yml` and `../default/verify.yml`) both exercise this single role — there is
-     no per-scenario role split.
+     `../default/prepare.yml`, `../default/converge.yml`, and `../default/verify.yml`) both exercise
+     this single role — there is no per-scenario role split. The two scenarios differ only in how the
+     target is provisioned: `molecule/default/create.yml` boots a QEMU virtual machine, while
+     `molecule/docker/create.yml` starts a privileged container from `molecule_yml.platforms`.
    - Extend `molecule/default/verify.yml` with assertions for new/changed behavior (installed
      packages, file ownership/mode, group membership, service state), following the existing
-     `ansible.builtin.assert` pattern.
+     `ansible.builtin.assert` pattern. Because verify is a separate `ansible-playbook` run, it cannot
+     see `defaults/main.yml` or the `konstruktoid.hardening.*` defaults and instead mirrors the values
+     it needs in its own `vars:` block — update that block whenever a value it mirrors changes.
+   - Assertions that depend on a running init system (`systemd_service` state, timers) must stay gated
+     on `ansible_facts.virtualization_type not in ["container", "docker", "podman"]`, since the
+     `docker` scenario's container runs `sleep 1d` as PID 1 rather than systemd.
    - If new scenario-specific variables are needed, add them under the relevant host in
      `molecule/default/inventory/host_vars/resolute/main.yml` (and
      `molecule/docker/inventory/host_vars/resolute/main.yml` if the `docker` scenario needs different
@@ -137,10 +148,12 @@ Report the issue instead of proceeding or silently giving up:
 - [ ] Lint passes: `ansible-lint`
 - [ ] Tests pass: `tox -e docker` / `molecule test -s docker`
 - [ ] Idempotence holds (no changes reported on molecule's second converge)
-- [ ] `molecule/default/verify.yml` updated if the role's observable behavior changed
+- [ ] `molecule/default/verify.yml` updated if the role's observable behavior changed, including its
+      `vars:` block if a value it mirrors from `defaults/main.yml` changed
 - [ ] `molecule/*/inventory/host_vars/resolute/main.yml` updated if new scenario-specific variables are
       needed
-- [ ] `README.md` "Role variables" block matches `defaults/main.yml`
+- [ ] `meta/argument_specs.yml` matches `defaults/main.yml` (same option names, types, and defaults)
+- [ ] `README.md` "Role variables" table matches `defaults/main.yml`
 - [ ] `shasums` in `defaults/main.yml` updated if a pinned tool release changed, with checksums
       verified against upstream
 - [ ] `become` is not used more broadly than the specific task requires

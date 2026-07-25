@@ -4,7 +4,7 @@
 # required, such as Docker group membership.
 workstation_user: "{{ ansible_facts.user_id }}"
 
-# Toggles for the konstruktoid.hardening roles listed in ansible-roles.
+# Toggles for the konstruktoid.hardening roles included by tasks/hardening.yml.
 # Each defaults to enabled; set to false to opt a specific role out.
 workstation_harden_apport: true
 workstation_harden_automatic_updates: true

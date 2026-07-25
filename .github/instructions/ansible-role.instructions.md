@@ -1,5 +1,5 @@
 ---
-applyTo: "{tasks,defaults,meta}/**/*.{yml,yaml}"
+applyTo: "{tasks,defaults,meta,molecule}/**/*.{yml,yaml}"
 ---
 
 # Workstation Role Instructions
@@ -28,6 +28,14 @@ Apply these rules to Ansible YAML changes in this role.
   `ansible_facts.distribution` branches for other platforms.
 - New or changed pinned tool releases (currently `workstation_uv_release`) must update the matching
   entry under `shasums:` in `defaults/main.yml` and keep checksum verification in the download task.
+- Every variable in `defaults/main.yml` has a corresponding option in `meta/argument_specs.yml`
+  declaring its `type` and `default`. Add, rename, retype, or remove them together; the specification
+  is enforced at run time, so drift fails the play rather than going unnoticed.
+- `molecule/default/verify.yml` runs as a separate `ansible-playbook` invocation and therefore cannot
+  read `defaults/main.yml` or the `konstruktoid.hardening.*` defaults. It mirrors the values it needs
+  in its own `vars:` block; changing a mirrored value (`workstation_uv_release`,
+  `workstation_packages`, `workstation_docker_packages`, and the hardening values below them) means
+  updating that block in the same change, or the assertions silently check a stale expectation.
 
 ## Conservative security handling
 

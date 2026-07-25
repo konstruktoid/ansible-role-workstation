@@ -1,5 +1,9 @@
 # workstation
 
+[![Ansible Lint](https://github.com/konstruktoid/ansible-role-workstation/actions/workflows/lint.yml/badge.svg)](https://github.com/konstruktoid/ansible-role-workstation/actions/workflows/lint.yml)
+[![Molecule testing workflow](https://github.com/konstruktoid/ansible-role-workstation/actions/workflows/molecule.yml/badge.svg)](https://github.com/konstruktoid/ansible-role-workstation/actions/workflows/molecule.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/konstruktoid/ansible-role-workstation/badge)](https://scorecard.dev/viewer/?uri=github.com/konstruktoid/ansible-role-workstation)
+
 An [Ansible](https://www.ansible.com/) role that installs and hardens a developer workstation running
 Ubuntu Resolute (26.04). The role is the only supported target platform; it does not attempt to support
 other Ubuntu releases or distributions.
@@ -8,9 +12,9 @@ See [OVERVIEW.md](OVERVIEW.md) for a high-level overview of the repository's pur
 structure.
 
 The role has two parts. First, it applies the fifteen [konstruktoid.hardening](https://galaxy.ansible.com/ui/repo/published/konstruktoid/hardening/)
-roles listed in `ansible-roles`. Second, it installs the developer tooling previously captured as
-manual shell commands in `install-log`: Docker Engine, [uv](https://docs.astral.sh/uv/), Node.js and
-npm, the Claude Code CLI, tox, the GitHub CLI, and the `copilot.vim` plugin.
+roles included by `tasks/hardening.yml`. Second, it installs the developer tooling that was previously
+applied as a sequence of manual shell commands: Docker Engine, [uv](https://docs.astral.sh/uv/),
+Node.js and npm, the Claude Code CLI, tox, the GitHub CLI, and the `copilot.vim` plugin.
 
 ## Usage
 
@@ -29,6 +33,25 @@ local machine over the `local` connection plugin, so no SSH access or remote tar
 To apply the role to a remote host instead, add the host to an inventory and reference the role from a
 playbook as shown in [Playbook example](#playbook-example), or run a subset of the role using the tags
 declared in `tasks/main.yml`, for example `--tags docker,uv`.
+
+### sudo-rs and `become_exe`
+
+`playbook.yml` sets `become_exe: sudo.ws`, and the [Playbook example](#playbook-example) below does the
+same. This is required, not incidental. Ubuntu Resolute points `/usr/bin/sudo` at
+[sudo-rs](https://github.com/trifectatechfoundation/sudo-rs), whose password prompt ansible-core does
+not recognise, so any task using `become` hangs until it fails with `Timed out waiting for become
+success`. `sudo.ws` is the classic sudo binary, registered as an `update-alternatives` entry by the
+`sudo` package, and pointing `become_exe` at it avoids the prompt mismatch.
+
+The upstream fix, [ansible/ansible#86175](https://github.com/ansible/ansible/pull/86175), is merged in
+`devel` but has not been backported, so no ansible-core release up to 2.21.x contains it. Keep
+`become_exe` in place until you are running a version that does; see
+[ansible/ansible#85837](https://github.com/ansible/ansible/issues/85837) for the background. Setting
+`ANSIBLE_BECOME_EXE=sudo.ws`, or `become_exe = sudo.ws` under `[privilege_escalation]` in
+`ansible.cfg`, works equally well if you would rather not set it per play.
+
+This does not affect the Molecule scenarios, which either connect as root or use a `NOPASSWD` sudoers
+entry, so no password prompt is ever produced.
 
 ## Requirements
 
@@ -57,15 +80,19 @@ declared in `tasks/main.yml`, for example `--tags docker,uv`.
 ```yaml
 ---
 - hosts: all
+  become_exe: sudo.ws
   tasks:
     - name: Include the workstation role
       ansible.builtin.import_role:
         name: workstation
 ```
 
+See [sudo-rs and `become_exe`](#sudo-rs-and-become_exe) for why `become_exe` is set.
+
 ## Role variables
 
-Defined in `defaults/main.yml`.
+Defined in `defaults/main.yml` and validated at run time by the role argument specification in
+`meta/argument_specs.yml`, which declares the type and default of every variable listed below.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -157,6 +184,27 @@ Docker daemon the invoking user can access.
 
 `tox -l` lists all available `tox` test environments. `tox -e docker` installs the collections listed
 in `requirements.yml`, runs `ansible-lint`, and then runs `molecule test -s docker`.
+
+## Continuous integration
+
+Six GitHub Actions workflows run against this repository. Every job that runs on a runner starts with
+[`step-security/harden-runner`](https://github.com/step-security/harden-runner), declares an explicit
+`timeout-minutes`, and requests the narrowest `permissions` it needs. Third-party actions are pinned to
+a commit SHA and kept current by Dependabot; the only exception is the reusable
+`slsa-framework/slsa-github-generator` workflow, which has to be referenced by release tag.
+
+| Workflow | Trigger | Purpose |
+| --- | --- | --- |
+| `lint.yml` | push, pull request, every third day | Runs `ansible-lint` at `profile: production`. |
+| `molecule.yml` | push, pull request, every third day, manual | Runs `tox -e docker` and `tox -e docker-upstream`, that is the `docker` Molecule scenario against released and against upstream Ansible. |
+| `slsa.yml` | push, release | Hashes the role content, then generates SLSA build provenance and attaches the checksum file to tagged releases. |
+| `scorecards.yml` | push to `main`, weekly, branch protection change | Runs the OpenSSF Scorecard analysis and uploads the results to code scanning. |
+| `dependency-review.yml` | pull request | Blocks pull requests that introduce known-vulnerable dependencies. |
+| `issues.yml` | issue opened | Assigns new issues to the maintainer. |
+
+The `default` Molecule scenario is not exercised in CI, because it boots a QEMU virtual machine and
+depends on host virtualization support. Run it locally as described under
+[Testing with molecule](#testing-with-molecule).
 
 ## Contributing
 

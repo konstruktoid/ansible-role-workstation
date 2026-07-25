@@ -30,7 +30,8 @@ platforms:
   - name: resolute
     image: docker.io/ubuntu:resolute
     privileged: true
-    volume_mounts:
+    # Consumed by create.yml as item.volumes; the key name has to match.
+    volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
 verifier:
   name: ansible

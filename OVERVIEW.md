@@ -63,7 +63,11 @@ QEMU-booted virtual machine and the other using a privileged container, both con
 and verifying the same outcomes: expected packages present, Docker group membership granted, Docker
 Engine running, `uv` and tox functional, the Claude Code command-line interface and `copilot.vim`
 present, and a representative sample of the hardening changes in effect. This component is what gives
-the other two components confidence that they continue to behave correctly as they change.
+the other two components confidence that they continue to behave correctly as they change. Continuous
+integration runs the linting and the container-based scenario automatically, against both the released
+and the development version of Ansible, and complements them with supply-chain checks: dependency
+review on pull requests, an OpenSSF Scorecard analysis, and SLSA build provenance for the role content.
+The virtual-machine scenario is left to local runs, because it depends on host virtualization support.
 
 ## Scope
 
