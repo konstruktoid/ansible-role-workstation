@@ -1,0 +1,388 @@
+---
+# Verify runs as a separate ansible-playbook invocation from converge, so it
+# cannot see this role's defaults/main.yml or the included
+# konstruktoid.hardening.* roles' defaults. The values below mirror those
+# defaults; keep them in sync if the role's defaults change.
+- name: Verify
+  hosts: all
+  any_errors_fatal: true
+  vars:
+    workstation_packages:
+      - cloud-image-utils
+      - git
+      - neovim
+      - nodejs
+      - npm
+      - ovmf
+      - qemu-system-x86
+      - qemu-utils
+      - tmux
+    workstation_docker_packages:
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-ce
+      - docker-ce-cli
+      - docker-compose-plugin
+    workstation_uv_release: "0.11.32"
+    workstation_npm_global_prefix: "{{ ansible_facts.env.HOME }}/.local"
+    workstation_copilot_vim_dest: "{{ ansible_facts.env.HOME }}/.config/nvim/pack/github/start/copilot.vim"
+    workstation_deleted_users:
+      - games
+      - gnats
+      - irc
+      - list
+      - news
+      - sync
+      - uucp
+    workstation_ntp_server: "2.pool.ntp.org"
+    workstation_dns_server: "1.1.1.2"
+    workstation_journald_storage: persistent
+    workstation_journald_forwardtosyslog: false
+    workstation_rsyslog_filecreatemode: "0640"
+    workstation_apt_hardening_settings:
+      - 'Acquire::AllowDowngradeToInsecureRepositories "false";'
+      - 'Acquire::AllowInsecureRepositories "false";'
+      - 'Acquire::http::AllowRedirect "false";'
+      - 'APT::Get::AllowUnauthenticated "false";'
+      - 'APT::Get::AutomaticRemove "true";'
+      - 'APT::Install-Recommends "false";'
+      - 'APT::Install-Suggests "false";'
+      - 'APT::Periodic::AutocleanInterval "7";'
+      - 'Unattended-Upgrade::Remove-Unused-Dependencies "true";'
+      - 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";'
+    workstation_systemd_limit_nofile_hard: 1024
+    workstation_systemd_limit_nproc_hard: 1024
+  tasks:
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: apt
+
+    - name: Assert workstation packages are installed
+      ansible.builtin.assert:
+        that:
+          - item in ansible_facts.packages
+        success_msg: "{{ item }} is installed"
+        fail_msg: "{{ item }} is not installed"
+      loop: "{{ workstation_packages }}"
+
+    - name: Assert Docker Engine packages are installed
+      ansible.builtin.assert:
+        that:
+          - item in ansible_facts.packages
+        success_msg: "{{ item }} is installed"
+        fail_msg: "{{ item }} is not installed"
+      loop: "{{ workstation_docker_packages }}"
+
+    - name: Assert GitHub CLI is installed
+      ansible.builtin.assert:
+        that:
+          - "'gh' in ansible_facts.packages"
+        success_msg: gh is installed
+        fail_msg: gh is not installed
+
+    - name: Verify Ansible user is a member of the docker group
+      ansible.builtin.command:
+        cmd: id -nG "{{ ansible_facts.user_id }}"
+      changed_when: false
+      register: workstation_user_groups
+
+    - name: Assert docker group membership
+      ansible.builtin.assert:
+        that:
+          - "'docker' in workstation_user_groups.stdout.split()"
+        success_msg: "{{ ansible_facts.user_id }} is a member of the docker group"
+        fail_msg: "{{ ansible_facts.user_id }} is not a member of the docker group"
+
+    - name: Gather docker.service status
+      ansible.builtin.systemd_service:
+        name: docker.service
+      register: workstation_docker_service_status
+      when:
+        - ansible_facts.virtualization_type not in ["container", "docker", "podman"]
+
+    - name: Assert Docker Engine service is active
+      ansible.builtin.assert:
+        that:
+          - workstation_docker_service_status.status.ActiveState == "active"
+        success_msg: docker.service is active
+        fail_msg: "docker.service is not active: {{ workstation_docker_service_status.status.ActiveState }}"
+      when:
+        - ansible_facts.virtualization_type not in ["container", "docker", "podman"]
+
+    - name: Verify uv version
+      ansible.builtin.command:
+        cmd: "{{ ansible_facts.env.HOME }}/.local/bin/uv --version"
+      changed_when: false
+      register: workstation_uv_version_check
+      failed_when: workstation_uv_release not in workstation_uv_version_check.stdout
+
+    - name: Verify tox is installed
+      ansible.builtin.stat:
+        path: "{{ ansible_facts.env.HOME }}/.local/bin/tox"
+      register: workstation_tox_stat
+      failed_when: not workstation_tox_stat.stat.exists
+
+    - name: Verify tox runs
+      ansible.builtin.command:
+        cmd: "{{ ansible_facts.env.HOME }}/.local/bin/tox --version"
+      changed_when: false
+
+    - name: Verify Claude Code CLI is installed
+      ansible.builtin.stat:
+        path: "{{ workstation_npm_global_prefix }}/bin/claude"
+        follow: false
+      register: workstation_claude_code_stat
+      failed_when: not workstation_claude_code_stat.stat.exists
+
+    - name: Assert the npm-managed claude binary replaced the pre-existing one
+      # prepare.yml plants a fake ~/.local/bin/claude symlink pointing at
+      # ~/.local/share/claude/versions/0.0.0-test to simulate a leftover
+      # curl-installer artifact; converge must clear it and let npm manage
+      # the symlink instead.
+      ansible.builtin.assert:
+        that:
+          - workstation_claude_code_stat.stat.islnk
+          - "'lib/node_modules' in workstation_claude_code_stat.stat.lnk_source"
+        success_msg: claude is a symlink managed by npm
+        fail_msg: "claude is not an npm-managed symlink: {{ workstation_claude_code_stat.stat }}"
+
+    - name: Verify copilot.vim was cloned
+      ansible.builtin.stat:
+        path: "{{ workstation_copilot_vim_dest }}/.git"
+      register: workstation_copilot_vim_stat
+      failed_when: not workstation_copilot_vim_stat.stat.exists
+
+    - name: Verify root account is locked
+      become: true
+      ansible.builtin.command:
+        cmd: passwd --status root
+      changed_when: false
+      register: workstation_root_status
+      failed_when: workstation_root_status.stdout.split()[1] not in ["L", "LK"]
+
+    - name: Stat /etc/default/apport
+      ansible.builtin.stat:
+        path: /etc/default/apport
+      register: workstation_apport_default
+
+    - name: Verify Apport is disabled
+      ansible.builtin.command:
+        cmd: grep -q '^enabled=0' /etc/default/apport
+      changed_when: false
+      register: workstation_apport_check
+      when:
+        - workstation_apport_default.stat.exists
+
+    - name: Verify unnecessary users were deleted
+      ansible.builtin.command:
+        cmd: getent passwd "{{ item }}"
+      changed_when: false
+      failed_when: workstation_deleted_user_check.rc == 0
+      register: workstation_deleted_user_check
+      loop: "{{ workstation_deleted_users }}"
+
+    - name: Verify PATH hardening script is present
+      ansible.builtin.stat:
+        path: /etc/profile.d/initpath.sh
+      register: workstation_initpath_stat
+      failed_when: not workstation_initpath_stat.stat.exists
+
+    - name: Verify systemd-timesyncd configuration
+      ansible.builtin.command:
+        cmd: grep -q "{{ workstation_ntp_server }}" /etc/systemd/timesyncd.conf
+      changed_when: false
+      when:
+        - ansible_facts.virtualization_type not in ["container", "docker", "podman"]
+
+    - name: Verify systemd-resolved configuration
+      ansible.builtin.command:
+        cmd: grep -q "{{ workstation_dns_server }}" /etc/systemd/resolved.conf
+      changed_when: false
+
+    - name: Verify unattended-upgrades periodic settings
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          apt-config dump | grep -Eo '^{{ item }}$'
+      args:
+        executable: /bin/bash
+      changed_when: false
+      loop:
+        - APT::Periodic::Unattended-Upgrade "1";
+        - APT::Periodic::Update-Package-Lists "1";
+        - Unattended-Upgrade::.*-[sS]ecurity";
+
+    - name: Loop over motd, issue and issue.net to stat
+      ansible.builtin.stat:
+        path: "/etc/{{ item }}"
+      loop:
+        - motd
+        - issue
+        - issue.net
+      register: workstation_issue_stat_results
+
+    - name: Assert the motd, issue and issue.net file owner and permissions
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.pw_name == 'root'
+          - item.stat.mode == '0644'
+        success_msg: "{{ item.stat.path }} has the expected owner and mode"
+        fail_msg: "{{ item.stat.path }} does not have the expected owner or mode"
+      loop: "{{ workstation_issue_stat_results.results }}"
+      loop_control:
+        label: "{{ item.stat.path }}"
+
+    - name: Verify journald settings
+      ansible.builtin.command:
+        cmd: grep -F "{{ item }}" /etc/systemd/journald.conf
+      register: workstation_journald_conf
+      changed_when: false
+      failed_when: workstation_journald_conf.rc != 0
+      loop:
+        - "Storage={{ workstation_journald_storage }}"
+        - "ForwardToSyslog={{ 'yes' if (workstation_journald_forwardtosyslog | bool) else 'no' }}"
+
+    - name: Ensure daily-logrotate.timer is enabled and active
+      ansible.builtin.systemd_service:
+        name: daily-logrotate.timer
+        state: started
+        enabled: true
+      check_mode: true
+      register: workstation_logrotate_timer
+      failed_when: workstation_logrotate_timer is changed
+      when:
+        - ansible_facts.virtualization_type not in ["container", "docker", "podman"]
+
+    - name: Gather motd-news.timer systemd unit status
+      ansible.builtin.systemd_service:
+        name: motd-news.timer
+      register: workstation_motd_news_timer_status
+      failed_when: false
+      when:
+        - ansible_facts.virtualization_type not in ["container", "docker", "podman"]
+
+    - name: Assert motd-news.timer is masked
+      ansible.builtin.assert:
+        that:
+          - workstation_motd_news_timer_status.status.LoadState in ["masked", "not-found"]
+        success_msg: "motd-news.timer is masked"
+        fail_msg: "motd-news.timer is not masked: {{ workstation_motd_news_timer_status.status.LoadState }}"
+      when:
+        - ansible_facts.virtualization_type not in ["container", "docker", "podman"]
+        - workstation_motd_news_timer_status.status is defined
+        - workstation_motd_news_timer_status.status.LoadState is defined
+
+    - name: Stat apt hardening configuration file
+      ansible.builtin.stat:
+        path: /etc/apt/apt.conf.d/99-hardening
+      register: workstation_apt_hardening_stat
+
+    - name: Assert apt hardening configuration file exists
+      ansible.builtin.assert:
+        that:
+          - workstation_apt_hardening_stat.stat.exists
+          - workstation_apt_hardening_stat.stat.mode == "0644"
+        success_msg: /etc/apt/apt.conf.d/99-hardening has the expected owner and mode
+        fail_msg: /etc/apt/apt.conf.d/99-hardening is missing or has an unexpected mode
+
+    - name: Verify apt hardening settings
+      ansible.builtin.command:
+        cmd: grep -Fx '{{ item }}' /etc/apt/apt.conf.d/99-hardening
+      register: workstation_apt_hardening_check
+      changed_when: false
+      failed_when: workstation_apt_hardening_check.rc != 0
+      loop: "{{ workstation_apt_hardening_settings }}"
+
+    - name: Stat /etc/security/access.conf
+      ansible.builtin.stat:
+        path: /etc/security/access.conf
+      register: workstation_access_conf_stat
+
+    - name: Get access.conf root entries
+      ansible.builtin.command:
+        cmd: grep '^[+-]:root:' /etc/security/access.conf
+      register: workstation_access_conf_root
+      changed_when: false
+      failed_when: workstation_access_conf_root.rc not in [0, 1]
+      when:
+        - workstation_access_conf_stat.stat.exists
+
+    - name: Assert access.conf root entries are correct
+      ansible.builtin.assert:
+        that:
+          - workstation_access_conf_root.stdout_lines | length == 2
+          - "'+:root:127.0.0.1 ::1' in workstation_access_conf_root.stdout_lines"
+          - "'-:root:ALL' in workstation_access_conf_root.stdout_lines"
+        success_msg: access.conf contains the expected root entries
+        fail_msg: "access.conf does not contain the expected root entries: {{ workstation_access_conf_root.stdout_lines }}"
+      when:
+        - workstation_access_conf_stat.stat.exists
+
+    - name: Stat /etc/securetty
+      ansible.builtin.stat:
+        path: /etc/securetty
+      register: workstation_securetty_stat
+
+    - name: Assert /etc/securetty is empty and root-owned
+      ansible.builtin.assert:
+        that:
+          - workstation_securetty_stat.stat.exists
+          - workstation_securetty_stat.stat.size == 0
+          - workstation_securetty_stat.stat.mode == "0000"
+        success_msg: /etc/securetty has the expected properties
+        fail_msg: "/etc/securetty does not have the expected properties: {{ workstation_securetty_stat.stat }}"
+
+    - name: Register sudo settings
+      become: true
+      ansible.builtin.command:
+        cmd: grep -REvh '#|^$' /etc/sudoers /etc/sudoers.d/
+      register: workstation_sudo_settings
+      changed_when: false
+      failed_when: workstation_sudo_settings.rc != 0
+
+    - name: Assert hardened sudo settings are present
+      ansible.builtin.assert:
+        that:
+          - "'use_pty' in workstation_sudo_settings.stdout"
+          - "'!pwfeedback' in workstation_sudo_settings.stdout"
+          - "'!visiblepw' in workstation_sudo_settings.stdout"
+          - "'!rootpw' in workstation_sudo_settings.stdout"
+          - "'!targetpw' in workstation_sudo_settings.stdout"
+        success_msg: sudo is hardened as expected
+        fail_msg: "sudo hardening settings are missing: {{ workstation_sudo_settings.stdout }}"
+
+    - name: Verify systemd system.conf hardening
+      become: true
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/system.conf
+        line: "{{ item }}"
+        state: present
+      check_mode: true
+      register: workstation_systemd_system_conf
+      failed_when: workstation_systemd_system_conf is changed
+      loop:
+        - DumpCore=no
+        - CrashShell=no
+        - "DefaultLimitNOFILE={{ workstation_systemd_limit_nofile_hard }}"
+        - "DefaultLimitNPROC={{ workstation_systemd_limit_nproc_hard }}"
+
+    - name: Verify systemd user.conf hardening
+      become: true
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/user.conf
+        line: "{{ item }}"
+        state: present
+      check_mode: true
+      register: workstation_systemd_user_conf
+      failed_when: workstation_systemd_user_conf is changed
+      loop:
+        - "DefaultLimitNOFILE={{ workstation_systemd_limit_nofile_hard }}"
+        - "DefaultLimitNPROC={{ workstation_systemd_limit_nproc_hard }}"
+
+    - name: Verify prelink is not usable
+      ansible.builtin.command:
+        cmd: prelink --version
+      register: workstation_prelink_version
+      changed_when: false
+      failed_when: workstation_prelink_version.rc == 0

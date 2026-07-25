@@ -1,0 +1,43 @@
+---
+- name: Ensure ~/.local/bin exists
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.local/bin"
+    state: directory
+    mode: "0755"
+
+- name: Ensure ~/.cache exists
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.cache"
+    state: directory
+    mode: "0700"
+
+- name: Get installed uv version
+  ansible.builtin.command:
+    cmd: "{{ ansible_facts.env.HOME }}/.local/bin/uv --version"
+  register: workstation_uv_version_check
+  changed_when: false
+  failed_when: false
+
+- name: Install uv {{ workstation_uv_release }}
+  when: workstation_uv_release not in workstation_uv_version_check.stdout
+  block:
+    - name: Download uv {{ workstation_uv_release }}
+      ansible.builtin.get_url:
+        url: "{{ workstation_uv_url }}/uv-{{ workstation_uv_arch }}-unknown-linux-gnu.tar.gz"
+        dest: "{{ ansible_facts.env.HOME }}/.cache/uv-{{ workstation_uv_release }}.tar.gz"
+        checksum: "sha256:{{ shasums.workstation_uv_release[workstation_uv_arch] }}"
+        mode: "0644"
+
+    - name: Extract uv into ~/.local/bin
+      ansible.builtin.unarchive:
+        src: "{{ ansible_facts.env.HOME }}/.cache/uv-{{ workstation_uv_release }}.tar.gz"
+        dest: "{{ ansible_facts.env.HOME }}/.local/bin"
+        extra_opts:
+          - --strip-components=1
+        remote_src: true
+        mode: "0755"
+
+    - name: Remove downloaded uv archive
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.cache/uv-{{ workstation_uv_release }}.tar.gz"
+        state: absent

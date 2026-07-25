@@ -1,0 +1,14 @@
+---
+collections:
+  - name: https://github.com/konstruktoid/ansible-collection-hardening.git
+    type: git
+    version: v0.2.0
+  - name: https://github.com/ansible-collections/community.crypto.git
+    type: git
+    version: "3.3.0"
+  - name: https://github.com/ansible-collections/community.docker.git
+    type: git
+    version: "5.2.1"
+  - name: https://github.com/ansible-collections/community.general.git
+    type: git
+    version: "13.2.0"

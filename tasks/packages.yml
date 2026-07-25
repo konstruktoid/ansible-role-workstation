@@ -1,0 +1,9 @@
+---
+- name: Install workstation packages
+  become: true
+  ansible.builtin.apt:
+    name: "{{ workstation_packages }}"
+    state: present
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 3600

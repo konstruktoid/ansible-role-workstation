@@ -1,0 +1,55 @@
+---
+ansible:
+  executor:
+    backend: ansible-playbook
+    args:
+      ansible_playbook:
+        - --inventory=${MOLECULE_SCENARIO_DIRECTORY}/inventory/
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+driver:
+  name: default
+provisioner:
+  name: ansible
+  playbooks:
+    converge: "../default/converge.yml"
+    prepare: "../default/prepare.yml"
+    verify: "../default/verify.yml"
+  config_options:
+    defaults:
+      callback_whitelist: profile_tasks
+      interpreter_python: auto_silent
+  env:
+    ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..:/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles
+  log: true
+  inventory:
+    directory: ./inventory
+platforms:
+  - name: resolute
+    image: docker.io/ubuntu:resolute
+    privileged: true
+    volume_mounts:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+verifier:
+  name: ansible
+scenario:
+  name: docker
+  create_sequence:
+    - dependency
+    - create
+    - prepare
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - idempotence
+    - side_effect
+    - verify
+    - cleanup
+    - destroy

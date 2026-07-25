@@ -1,0 +1,33 @@
+---
+- name: Install GitHub CLI from the upstream apt repository
+  become: true
+  block:
+    - name: Ensure apt keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Add GitHub CLI GPG key
+      ansible.builtin.get_url:
+        url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+        dest: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+        mode: "0644"
+
+    - name: Add GitHub CLI apt repository
+      ansible.builtin.deb822_repository:
+        name: github-cli
+        types: deb
+        uris: https://cli.github.com/packages
+        suites: stable
+        components: main
+        architectures: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts.architecture, ansible_facts.architecture) }}"
+        signed_by: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+        install_python_debian: true
+
+    - name: Install GitHub CLI package
+      ansible.builtin.apt:
+        name: gh
+        state: present
+        install_recommends: false
+        update_cache: true

@@ -1,0 +1,171 @@
+---
+argument_specs:
+  main:
+    short_description: Developer workstation installation and hardening for Ubuntu Resolute
+    description:
+      - >-
+        Applies the fifteen C(konstruktoid.hardening) roles listed in C(ansible-roles), then installs
+        developer tooling (Docker Engine, uv, Node.js/npm, the Claude Code CLI, tox, the GitHub CLI, and
+        the C(copilot.vim) plugin).
+    options:
+      workstation_user:
+        type: str
+        default: "{{ ansible_facts.user_id }}"
+        description:
+          - Account the workstation tools are installed for. Used only where an explicit username is
+            required, such as Docker group membership.
+      workstation_harden_apport:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.apport) role.
+      workstation_harden_automatic_updates:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.automatic_updates) role.
+      workstation_harden_delete_users:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.delete_users) role.
+      workstation_harden_issue:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.issue) role.
+      workstation_harden_journald:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.journald) role.
+      workstation_harden_lock_root:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.lock_root) role.
+      workstation_harden_motd_news:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.motd_news) role.
+      workstation_harden_package_management:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.package_management) role.
+      workstation_harden_paths:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.paths) role.
+      workstation_harden_prelink:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.prelink) role.
+      workstation_harden_resolvedconf:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.resolvedconf) role.
+      workstation_harden_root_access:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.root_access) role.
+      workstation_harden_sudo:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.sudo) role.
+      workstation_harden_systemdconf:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.systemdconf) role.
+      workstation_harden_timesyncd:
+        type: bool
+        default: true
+        description: Enable the C(konstruktoid.hardening.timesyncd) role.
+      workstation_packages:
+        type: list
+        elements: str
+        default:
+          - cloud-image-utils
+          - git
+          - neovim
+          - nodejs
+          - npm
+          - ovmf
+          - qemu-system-x86
+          - qemu-utils
+          - tmux
+        description: apt packages installed without recommended or suggested extras.
+      workstation_docker_install:
+        type: bool
+        default: true
+        description: Install Docker Engine from the upstream apt repository.
+      workstation_docker_packages:
+        type: list
+        elements: str
+        default:
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-ce
+          - docker-ce-cli
+          - docker-compose-plugin
+        description: Docker Engine apt packages.
+      workstation_docker_group_membership:
+        type: bool
+        default: true
+        description:
+          - Add C(workstation_user) to the C(docker) group so containers can be run without C(become).
+            This grants that account root-equivalent access to the host through the Docker socket.
+      workstation_uv_install:
+        type: bool
+        default: true
+        description: Install C(uv).
+      workstation_uv_arch:
+        type: str
+        default: "{{ ansible_facts.architecture }}"
+        description: Architecture used to select the C(uv) release archive.
+      workstation_uv_release:
+        type: str
+        default: "0.11.32"
+        description: Pinned C(uv) release.
+      workstation_uv_url:
+        type: str
+        default: "https://github.com/astral-sh/uv/releases/download/{{ workstation_uv_release }}"
+        description: Base URL for the C(uv) release archive.
+      workstation_npm_global_prefix:
+        type: str
+        default: "{{ ansible_facts.env.HOME }}/.local"
+        description: npm global install prefix, owned by the connecting user.
+      workstation_tox_install:
+        type: bool
+        default: true
+        description: Install tox as a C(uv) tool.
+      workstation_claude_code_install:
+        type: bool
+        default: true
+        description: Install the Claude Code CLI through npm.
+      workstation_claude_code_package:
+        type: str
+        default: "@anthropic-ai/claude-code"
+        description: npm package installed for Claude Code.
+      workstation_gh_install:
+        type: bool
+        default: true
+        description: Install the GitHub CLI from the upstream apt repository.
+      workstation_copilot_vim_install:
+        type: bool
+        default: true
+        description: Clone C(copilot.vim).
+      workstation_copilot_vim_repo:
+        type: str
+        default: "https://github.com/github/copilot.vim.git"
+        description: Repository cloned for C(copilot.vim).
+      workstation_copilot_vim_version:
+        type: str
+        default: release
+        description: Git ref checked out for C(copilot.vim).
+      workstation_copilot_vim_dest:
+        type: str
+        default: "{{ ansible_facts.env.HOME }}/.config/nvim/pack/github/start/copilot.vim"
+        description: Destination path for the C(copilot.vim) clone.
+      shasums:
+        type: dict
+        default:
+          workstation_uv_release:
+            aarch64: "4d4fa08d95b06642e5800df6a22bd71455f23f988269e18da2847971d8c0bf31"
+            x86_64: "aab924fd522efd06f1c5f3b93a243864fc453132c94b2dc49f1371b528a4b967"
+        description:
+          - Checksums for pinned tool releases, keyed by variable name and then architecture. Used to
+            verify downloaded release archives before extracting them.

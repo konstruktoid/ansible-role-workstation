@@ -1,0 +1,61 @@
+---
+- name: Apply workstation hardening
+  ansible.builtin.import_tasks:
+    file: hardening.yml
+  tags:
+    - hardening
+
+- name: Install workstation packages
+  ansible.builtin.import_tasks:
+    file: packages.yml
+  tags:
+    - packages
+
+- name: Install Docker Engine
+  ansible.builtin.import_tasks:
+    file: docker.yml
+  when:
+    - workstation_docker_install | bool
+  tags:
+    - docker
+
+- name: Install uv
+  ansible.builtin.import_tasks:
+    file: uv.yml
+  when:
+    - workstation_uv_install | bool
+  tags:
+    - uv
+
+- name: Configure npm and install Claude Code
+  ansible.builtin.import_tasks:
+    file: npm.yml
+  when:
+    - workstation_claude_code_install | bool
+  tags:
+    - npm
+    - claude_code
+
+- name: Install tox
+  ansible.builtin.import_tasks:
+    file: tox.yml
+  when:
+    - workstation_tox_install | bool
+  tags:
+    - tox
+
+- name: Install GitHub CLI
+  ansible.builtin.import_tasks:
+    file: github_cli.yml
+  when:
+    - workstation_gh_install | bool
+  tags:
+    - github_cli
+
+- name: Install copilot.vim
+  ansible.builtin.import_tasks:
+    file: copilot_vim.yml
+  when:
+    - workstation_copilot_vim_install | bool
+  tags:
+    - copilot_vim

@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: workstation
+  author: konstruktoid
+  description: Developer workstation installation and hardening for Ubuntu Resolute
+  license: apache
+  min_ansible_version: "2.18"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - resolute
+  galaxy_tags:
+    - development
+    - docker
+    - hardening
+    - security
+    - ubuntu
+    - workstation
+
+dependencies: []

@@ -1,0 +1,43 @@
+---
+- name: Ensure npm global prefix directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_npm_global_prefix }}"
+    state: directory
+    mode: "0755"
+
+- name: Configure a user-owned npm global install prefix
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_facts.env.HOME }}/.npmrc"
+    regexp: ^prefix=
+    line: "prefix={{ workstation_npm_global_prefix }}"
+    create: true
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+
+- name: Check for a pre-existing claude binary
+  ansible.builtin.stat:
+    path: "{{ workstation_npm_global_prefix }}/bin/claude"
+    follow: false
+  register: workstation_claude_code_existing
+
+# The upstream curl-pipe-to-shell installer symlinks ~/.local/bin/claude to
+# ~/.local/share/claude/versions/<version>, outside npm's lib/node_modules
+# tree. npm's global install refuses to overwrite that path (EEXIST), so any
+# such leftover from a previous non-npm install has to be cleared first.
+- name: Remove a claude binary not managed by npm
+  ansible.builtin.file:
+    path: "{{ workstation_npm_global_prefix }}/bin/claude"
+    state: absent
+  when:
+    - workstation_claude_code_existing.stat.exists
+    - not (workstation_claude_code_existing.stat.islnk | default(false)
+      and 'lib/node_modules' in (workstation_claude_code_existing.stat.lnk_source | default('')))
+
+- name: Install Claude Code CLI
+  community.general.npm:
+    name: "{{ workstation_claude_code_package }}"
+    global: true
+    state: present
+  environment:
+    NPM_CONFIG_PREFIX: "{{ workstation_npm_global_prefix }}"

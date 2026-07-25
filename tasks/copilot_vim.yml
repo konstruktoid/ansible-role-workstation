@@ -1,0 +1,13 @@
+---
+- name: Ensure Vim pack directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_copilot_vim_dest | dirname }}"
+    state: directory
+    mode: "0755"
+
+- name: Clone copilot.vim
+  ansible.builtin.git:
+    repo: "{{ workstation_copilot_vim_repo }}"
+    dest: "{{ workstation_copilot_vim_dest }}"
+    version: "{{ workstation_copilot_vim_version }}"
+    depth: 1

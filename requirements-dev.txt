@@ -1,0 +1,8 @@
+ansible<15
+ansible-lint
+jmespath
+molecule
+passlib
+requests
+python-debian
+tox

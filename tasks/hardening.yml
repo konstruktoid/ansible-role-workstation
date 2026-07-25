@@ -1,0 +1,90 @@
+---
+- name: Manage Apport
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.apport
+  when:
+    - workstation_harden_apport | bool
+
+- name: Configure automatic updates
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.automatic_updates
+  when:
+    - workstation_harden_automatic_updates | bool
+
+- name: Delete unnecessary users
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.delete_users
+  when:
+    - workstation_harden_delete_users | bool
+
+- name: Update /etc/issue and /etc/motd
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.issue
+  when:
+    - workstation_harden_issue | bool
+
+- name: Configure journald, rsyslog and logrotate
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.journald
+  when:
+    - workstation_harden_journald | bool
+
+- name: Lock the root account
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.lock_root
+  when:
+    - workstation_harden_lock_root | bool
+
+- name: Manage apt ESM, motd-news and Ubuntu Pro
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.motd_news
+  when:
+    - workstation_harden_motd_news | bool
+
+- name: Configure apt and system upgrades
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.package_management
+  when:
+    - workstation_harden_package_management | bool
+
+- name: Harden PATH and environment
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.paths
+  when:
+    - workstation_harden_paths | bool
+
+- name: Disable prelink
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.prelink
+  when:
+    - workstation_harden_prelink | bool
+
+- name: Configure systemd-resolved
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.resolvedconf
+  when:
+    - workstation_harden_resolvedconf | bool
+
+- name: Restrict root access
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.root_access
+  when:
+    - workstation_harden_root_access | bool
+
+- name: Harden sudo
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.sudo
+  when:
+    - workstation_harden_sudo | bool
+
+- name: Configure systemd system.conf and user.conf
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.systemdconf
+  when:
+    - workstation_harden_systemdconf | bool
+
+- name: Configure systemd-timesyncd
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.timesyncd
+  when:
+    - workstation_harden_timesyncd | bool

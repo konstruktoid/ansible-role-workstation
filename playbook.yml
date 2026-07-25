@@ -1,0 +1,8 @@
+---
+- name: Configure the local workstation
+  hosts: localhost
+  become_exe: sudo.ws
+  tasks:
+    - name: Include the workstation role
+      ansible.builtin.import_role:
+        name: "{{ playbook_dir }}"

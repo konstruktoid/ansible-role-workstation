@@ -1,0 +1,6 @@
+---
+- name: Install tox with uv
+  ansible.builtin.command:
+    cmd: "{{ ansible_facts.env.HOME }}/.local/bin/uv tool install tox --with tox-uv"
+  args:
+    creates: "{{ ansible_facts.env.HOME }}/.local/bin/tox"

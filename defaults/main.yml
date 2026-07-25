@@ -1,0 +1,82 @@
+---
+# The account the workstation tools are installed for. Defaults to the
+# account Ansible connects as. Used only where an explicit username is
+# required, such as Docker group membership.
+workstation_user: "{{ ansible_facts.user_id }}"
+
+# Toggles for the konstruktoid.hardening roles listed in ansible-roles.
+# Each defaults to enabled; set to false to opt a specific role out.
+workstation_harden_apport: true
+workstation_harden_automatic_updates: true
+workstation_harden_delete_users: true
+workstation_harden_issue: true
+workstation_harden_journald: true
+workstation_harden_lock_root: true
+workstation_harden_motd_news: true
+workstation_harden_package_management: true
+workstation_harden_paths: true
+workstation_harden_prelink: true
+workstation_harden_resolvedconf: true
+workstation_harden_root_access: true
+workstation_harden_sudo: true
+workstation_harden_systemdconf: true
+workstation_harden_timesyncd: true
+
+# apt packages installed without recommended/suggested extras.
+workstation_packages:
+  - cloud-image-utils
+  - git
+  - neovim
+  - nodejs
+  - npm
+  - ovmf
+  - qemu-system-x86
+  - qemu-utils
+  - tmux
+
+# Docker Engine, installed from the upstream apt repository.
+workstation_docker_install: true
+workstation_docker_packages:
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-ce
+  - docker-ce-cli
+  - docker-compose-plugin
+
+# Add workstation_user to the docker group so containers can be run without
+# become. This grants that account root-equivalent access to the host
+# through the Docker socket; disable it if that trade-off is unwanted.
+workstation_docker_group_membership: true
+
+# uv, downloaded as a checksum-verified release archive rather than piping
+# the upstream install script through a shell.
+workstation_uv_install: true
+workstation_uv_arch: "{{ ansible_facts.architecture }}"
+workstation_uv_release: "0.11.32"
+workstation_uv_url: "https://github.com/astral-sh/uv/releases/download/{{ workstation_uv_release }}"
+
+# npm global installs are redirected to a directory workstation_user owns,
+# so they never require become.
+workstation_npm_global_prefix: "{{ ansible_facts.env.HOME }}/.local"
+
+# tox, installed as a uv tool.
+workstation_tox_install: true
+
+# Claude Code CLI, installed through the user-scoped npm prefix above
+# instead of the upstream curl-pipe-to-shell installer.
+workstation_claude_code_install: true
+workstation_claude_code_package: "@anthropic-ai/claude-code"
+
+# GitHub CLI, installed from the upstream apt repository.
+workstation_gh_install: true
+
+# copilot.vim, cloned into the Ansible user's Vim packages directory.
+workstation_copilot_vim_install: true
+workstation_copilot_vim_repo: "https://github.com/github/copilot.vim.git"
+workstation_copilot_vim_version: release
+workstation_copilot_vim_dest: "{{ ansible_facts.env.HOME }}/.config/nvim/pack/github/start/copilot.vim"
+
+shasums:
+  workstation_uv_release:
+    aarch64: "4d4fa08d95b06642e5800df6a22bd71455f23f988269e18da2847971d8c0bf31"
+    x86_64: "aab924fd522efd06f1c5f3b93a243864fc453132c94b2dc49f1371b528a4b967"

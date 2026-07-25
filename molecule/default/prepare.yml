@@ -1,0 +1,58 @@
+---
+- name: Prepare
+  hosts: molecule
+  gather_facts: false
+  any_errors_fatal: true
+  become: "{{ ansible_user is defined and ansible_user != 'root' }}"
+  tasks:
+    - name: Install Python 3
+      ansible.builtin.raw: >
+        DEBIAN_FRONTEND=noninteractive apt-get install --update -y python3 python3-apt || \
+        dnf install -y python3 python3-dnf || microdnf install -y python3 python3-dnf
+      changed_when: false
+      register: workstation_molecule_install_python3
+      until: workstation_molecule_install_python3 is success
+      retries: 10
+      delay: 6
+
+    - name: Install sudo
+      ansible.builtin.raw: >
+        DEBIAN_FRONTEND=noninteractive apt-get install --update -y sudo || \
+        microdnf install -y sudo || dnf install -y sudo
+      changed_when: false
+      register: workstation_molecule_install_sudo
+      until: workstation_molecule_install_sudo is success
+      retries: 10
+      delay: 6
+
+    - name: Gather facts
+      ansible.builtin.gather_facts:
+
+    - name: Simulate a pre-existing curl-installed Claude Code CLI
+      # Reproduces https://github.com/anthropics/claude-code's upstream
+      # installer layout, which the role's npm-based install must clear
+      # before it can create its own ~/.local/bin/claude symlink.
+      block:
+        - name: Create a fake native installer versions directory
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.local/share/claude/versions"
+            state: directory
+            mode: "0755"
+
+        - name: Create a fake native installer claude binary
+          ansible.builtin.copy:
+            content: ""
+            dest: "{{ ansible_facts.env.HOME }}/.local/share/claude/versions/0.0.0-test"
+            mode: "0755"
+
+        - name: Ensure ~/.local/bin exists
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.local/bin"
+            state: directory
+            mode: "0755"
+
+        - name: Symlink the fake native installer claude binary into ~/.local/bin
+          ansible.builtin.file:
+            src: "{{ ansible_facts.env.HOME }}/.local/share/claude/versions/0.0.0-test"
+            dest: "{{ ansible_facts.env.HOME }}/.local/bin/claude"
+            state: link

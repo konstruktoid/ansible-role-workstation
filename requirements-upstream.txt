@@ -1,0 +1,8 @@
+git+https://github.com/ansible-community/ansible-lint.git
+git+https://github.com/ansible/ansible.git
+git+https://github.com/ansible/molecule.git
+jmespath
+passlib
+python-debian
+requests
+tox
