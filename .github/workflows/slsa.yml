@@ -93,7 +93,6 @@ jobs:
     name: Attach checksum to release
     permissions:
       actions: read # Needed to download the build job's artifact.
-      id-token: write # Needed to mint the OIDC token for publishing.
       contents: write # Needed to upload the checksum to the release.
     needs: [build, provenance]
     runs-on: ubuntu-26.04
