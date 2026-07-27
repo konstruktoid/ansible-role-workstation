@@ -5,13 +5,17 @@ on:
   issues:
     types: [opened]
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number }}
+  cancel-in-progress: false
 
 jobs:
   auto-assign:
+    name: Auto-assign issue
     permissions:
-      issues: write
+      issues: write # Needed to set the assignee on the new issue.
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:

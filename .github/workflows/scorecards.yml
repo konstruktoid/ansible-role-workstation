@@ -1,30 +1,38 @@
 ---
 name: Scorecards supply-chain security
 
+# Note: the `push` trigger was removed deliberately. Scorecard only supports the
+# default branch, every run so far logged `Publication enabled: false`, and a
+# single analysis of this repository takes ~3h because the checks resolve the
+# pip requirements files. Running it per push to main bought nothing and cost
+# hours of runner time. The weekly schedule is what refreshes the code scanning
+# alerts.
 on:
   # Only the default branch is supported.
   branch_protection_rule:
   schedule:
     - cron: "23 9 * * 1"
-  push:
-    branches: ["main"]
+  workflow_dispatch:
 
-# Declare default permissions as read only.
-permissions: read-all
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   analysis:
     name: Scorecards analysis
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    # The analysis stalls for ~3h resolving the Python dependencies declared in
+    # requirements-dev.txt and requirements-upstream.txt. 20m was not enough and
+    # cancelled every run; see the harden-runner egress audit of run 30151272286.
+    timeout-minutes: 360
     permissions:
-      # Needed to upload the results to code-scanning dashboard.
-      security-events: write
-      # Used to receive a badge.
-      id-token: write
-      # Needs for private repositories.
-      contents: read
-      actions: read
+      security-events: write # Needed to upload the results to code scanning.
+      id-token: write # Used to receive a Scorecard badge.
+      contents: read # Needed to check out the repository.
+      actions: read # Needed to read the workflow metadata Scorecard analyses.
 
     steps:
       - name: Harden the runner (Audit all outbound calls)

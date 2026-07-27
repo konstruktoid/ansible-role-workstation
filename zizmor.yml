@@ -1,0 +1,12 @@
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # The SLSA generator MUST be referenced by a `@vX.Y.Z` tag rather than a
+        # commit SHA: slsa-verifier verifies the ref of the trusted builder's
+        # reusable workflow, and referencing it by digest (or by a shorter tag
+        # such as `@v2`) fails the build. This is documented in the
+        # slsa-github-generator README as a deliberate deviation from GitHub's
+        # digest-pinning guidance. Every other action stays SHA-pinned.
+        slsa-framework/slsa-github-generator/*: ref-pin
+        "*": hash-pin

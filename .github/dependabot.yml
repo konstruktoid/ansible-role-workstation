@@ -5,3 +5,7 @@ updates:
     directory: /
     schedule:
       interval: daily
+    # Wait for a release to have been public long enough that a malicious or
+    # broken version would have been noticed before it is proposed here.
+    cooldown:
+      default-days: 7
