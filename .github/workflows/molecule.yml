@@ -8,8 +8,7 @@ on:
     - cron: "30 5 * * */3"
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,8 +16,11 @@ concurrency:
 
 jobs:
   tox-docker:
+    name: Molecule (stable releases)
     runs-on: ubuntu-26.04
     timeout-minutes: 45
+    permissions:
+      contents: read # Needed to check out the role under test.
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
@@ -44,8 +46,11 @@ jobs:
           tox run -e docker
 
   tox-docker-upstream:
+    name: Molecule (upstream code)
     runs-on: ubuntu-26.04
     timeout-minutes: 45
+    permissions:
+      contents: read # Needed to check out the role under test.
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0

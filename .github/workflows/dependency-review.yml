@@ -12,8 +12,7 @@ name: Dependency Review
 
 on: [pull_request]
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,8 +20,11 @@ concurrency:
 
 jobs:
   dependency-review:
+    name: Dependency Review
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    permissions:
+      contents: read # Needed to read the dependency manifests.
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0

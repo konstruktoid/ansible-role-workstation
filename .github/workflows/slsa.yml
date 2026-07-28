@@ -6,8 +6,7 @@ on:
   release:
     types: [published, released]
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,10 +14,13 @@ concurrency:
 
 jobs:
   build:
+    name: Build and hash role content
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    permissions:
+      contents: read # Needed to check out the role content that is hashed.
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
@@ -74,19 +76,24 @@ jobs:
   provenance:
     needs: [build]
     permissions:
-      actions: read
-      id-token: write
-      contents: write
+      actions: read # Needed to read the run metadata being attested to.
+      id-token: write # Needed to mint the OIDC token signing the provenance.
+      contents: write # Needed to attach the provenance to the release.
+    # Deliberately referenced by `@vX.Y.Z` and not by commit SHA. The generator
+    # MUST be referenced by tag so slsa-verifier can verify the ref of the
+    # trusted builder's reusable workflow, and a shorter tag such as `@v2` fails
+    # the build. See the slsa-github-generator README. zizmor's `unpinned-uses`
+    # finding for this line is suppressed in zizmor.yml for the same reason.
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: "${{ needs.build.outputs.hashes }}"
       upload-assets: ${{ startsWith(github.ref, 'refs/tags/') }}
 
   release:
+    name: Attach checksum to release
     permissions:
-      actions: read
-      id-token: write
-      contents: write
+      actions: read # Needed to download the build job's artifact.
+      contents: write # Needed to upload the checksum to the release.
     needs: [build, provenance]
     runs-on: ubuntu-26.04
     timeout-minutes: 10
