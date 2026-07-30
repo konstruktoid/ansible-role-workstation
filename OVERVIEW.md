@@ -7,9 +7,9 @@ Resolute (26.04) machine as a hardened developer workstation. It targets exactly
 Ubuntu Resolute, and does not attempt to support other Ubuntu releases or Linux distributions.
 
 The repository addresses a specific problem: preparing a fresh Ubuntu Resolute installation for
-software development work while simultaneously reducing its exposed attack surface. Historically,
-this preparation involved running an ad hoc sequence of manual shell commands and curl-piped
-install scripts, a process that is slow to repeat, difficult to audit, and easy to get wrong.
+software development work while reducing its exposed attack surface. This preparation previously
+involved an ad hoc sequence of manual shell commands and curl-piped install scripts, a process that
+is slow to repeat, difficult to audit, and easy to get wrong.
 
 The intended audience is individual developers and small teams who provision their own Ubuntu
 Resolute workstations and want that provisioning to be repeatable, reviewable, and aligned with
@@ -18,12 +18,12 @@ rebuilt.
 
 ## Purpose
 
-The repository exists to collapse workstation setup and workstation hardening into a single,
-version-controlled Ansible role. Two problems are addressed together because they compete for the
-same resource, namely root privileges on the target machine: development tooling generally needs to
-be installed, and the underlying operating system generally needs to be locked down. Treating them
-as one role keeps the trade-offs between convenience and security visible in one place instead of
-split across unrelated scripts.
+The repository exists to combine workstation setup and workstation hardening into a single,
+version-controlled Ansible role. The two tasks are addressed together because they compete for the
+same resource, namely root privileges on the target machine: development tooling has to be
+installed, and the underlying operating system has to be locked down. Treating them as one role
+keeps the trade-offs between convenience and security visible in one place instead of split across
+unrelated scripts.
 
 The guiding principles are security first and minimal use of elevated privileges. Package and
 repository management rely on checksum-verified downloads and signed apt repositories rather than
@@ -32,9 +32,9 @@ by default. Tasks run without elevated privileges unless the underlying operatio
 root, such as apt package and repository management or Docker group membership; tool installations
 that only write to the connecting user's home directory never elevate privileges.
 
-The value the repository provides is a workstation that starts from a known, auditable, and
-hardened baseline, with every hardening control and every tool installation individually toggleable,
-so a user can opt out of any single behavior without disabling the rest.
+The result is a workstation that starts from a known, auditable, and hardened baseline. Every
+hardening control and every tool installation is individually toggleable, so a user can opt out of
+any single behavior without disabling the rest.
 
 ## Major Components
 
@@ -46,28 +46,26 @@ control can be disabled without affecting the others.
 
 **Developer tooling installation** installs the software a developer is expected to need on a
 workstation: Docker Engine, the `uv` Python package and project manager, Node.js and npm, the Claude
-Code command-line interface, tox, the GitHub command-line interface, and the `copilot.vim` plugin.
-Each tool is installed through a mechanism appropriate to its trust model, for example a
-checksum-verified release archive for `uv`, or a signed upstream apt repository for Docker Engine and
-the GitHub command-line interface, rather than through a generic install script executed with
-elevated trust.
+Code command-line interface (CLI), tox, the GitHub CLI, and the `copilot.vim` plugin. Each tool is
+installed through a mechanism appropriate to its trust model, for example a checksum-verified release
+archive for `uv`, or a signed upstream apt repository for Docker Engine and the GitHub CLI, rather
+than through a generic install script executed with elevated trust.
 
 **Role variables and defaults** define every toggle and configuration point exposed by the role,
 including which account tooling is installed for, which packages are installed, and the pinned
-versions and checksums used for integrity verification. This component is what allows the two other
-components, hardening and tooling, to be selectively enabled, disabled, or reconfigured without
-modifying task logic.
+versions and checksums used for integrity verification. These variables allow hardening and tooling to
+be selectively enabled, disabled, or reconfigured without modifying task logic.
 
 **Test harness** exercises the role through two independent Molecule scenarios, one using a
 QEMU-booted virtual machine and the other using a privileged container, both converging the same role
 and verifying the same outcomes: expected packages present, Docker group membership granted, Docker
-Engine running, `uv` and tox functional, the Claude Code command-line interface and `copilot.vim`
-present, and a representative sample of the hardening changes in effect. This component is what gives
-the other two components confidence that they continue to behave correctly as they change. Continuous
-integration runs the linting and the container-based scenario automatically, against both the released
-and the development version of Ansible, and complements them with supply-chain checks: dependency
-review on pull requests, an OpenSSF Scorecard analysis, and SLSA build provenance for the role content.
-The virtual-machine scenario is left to local runs, because it depends on host virtualization support.
+Engine running, `uv` and tox functional, the Claude Code CLI and `copilot.vim` present, and a
+representative sample of the hardening changes in effect. The test harness confirms that hardening and
+tooling continue to behave correctly as they change. Continuous integration runs the linting and the
+container-based scenario automatically, against both the released and the development version of
+Ansible, and complements them with supply-chain checks: dependency review on pull requests, an
+OpenSSF Scorecard analysis, and SLSA build provenance for the role content. The virtual-machine
+scenario is left to local runs, because it depends on host virtualization support.
 
 ## Scope
 

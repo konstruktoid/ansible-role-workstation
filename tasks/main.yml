@@ -19,9 +19,15 @@
   tags:
     - docker
 
+# uv, npm, tox and copilot.vim only write to the connecting user's home
+# directory, so they are pinned to become: false. A static import applies the
+# keyword to every task it imports, which keeps the privilege boundary in one
+# auditable place and stops a play-level become: true in a consuming playbook
+# from silently installing these tools as root.
 - name: Install uv
   ansible.builtin.import_tasks:
     file: uv.yml
+  become: false
   when:
     - workstation_uv_install | bool
   tags:
@@ -30,6 +36,7 @@
 - name: Configure npm and install Claude Code
   ansible.builtin.import_tasks:
     file: npm.yml
+  become: false
   when:
     - workstation_claude_code_install | bool
   tags:
@@ -39,6 +46,7 @@
 - name: Install tox
   ansible.builtin.import_tasks:
     file: tox.yml
+  become: false
   when:
     - workstation_tox_install | bool
   tags:
@@ -55,6 +63,7 @@
 - name: Install copilot.vim
   ansible.builtin.import_tasks:
     file: copilot_vim.yml
+  become: false
   when:
     - workstation_copilot_vim_install | bool
   tags:
