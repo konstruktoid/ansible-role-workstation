@@ -13,14 +13,14 @@ secure-by-default, operationally reliable, maintainable, and auditable changes.
   `konstruktoid.hardening.*` roles, and `tasks/{packages,docker,uv,npm,tox,github_cli,copilot_vim}.yml`,
   which install the developer tooling. Keep that separation; do not fold hardening logic into the
   tool-installation tasks or vice versa. `tasks/hardening.yml` and `tasks/main.yml` are the
-  authoritative lists of what the role applies — there is no separate manifest file.
+  authoritative lists of what the role applies; there is no separate manifest file.
 - Every hardening role and every tool installation must remain independently toggleable through its
   own `workstation_harden_*` or `workstation_*_install` variable. Never collapse these into a single
   switch.
 - `playbook.yml` sets `become_exe: sudo.ws` deliberately. Ubuntu Resolute points `/usr/bin/sudo` at
-  `sudo-rs`, whose password prompt ansible-core does not recognise, so `become` tasks hang and fail
+  `sudo-rs`, whose password prompt ansible-core does not recognize, so `become` tasks hang and fail
   with "Timed out waiting for become success"; `sudo.ws` is the classic sudo binary the `sudo` package
-  registers with `update-alternatives`. It is not a typo for `sudo` — do not "correct" it, and keep it
+  registers with `update-alternatives`. It is not a typo for `sudo`. Do not "correct" it, and keep it
   in the README's playbook example. The upstream fix (ansible/ansible#86175, for issue
   ansible/ansible#85837) is merged in `devel` but not backported, so it is absent from every
   ansible-core release this role supports; the setting can be dropped once the minimum supported
@@ -34,7 +34,7 @@ secure-by-default, operationally reliable, maintainable, and auditable changes.
 - Use clear task names, explicit conditions, and deterministic behavior.
 - Favor maintainability over clever one-liners.
 - Binary and archive downloads (currently `uv`) must keep checksum verification against the `shasums`
-  values in `defaults/main.yml` — never fetch and install a release without verifying it. Prefer a
+  values in `defaults/main.yml`. Never fetch and install a release without verifying it. Prefer a
   vendor's signed apt repository (as used for Docker Engine and the GitHub CLI) over piping an install
   script through a shell.
 
@@ -99,9 +99,9 @@ secure-by-default, operationally reliable, maintainable, and auditable changes.
   assuming role code is at fault.
 - On some local/dev machines, `tox -e docker` / `molecule test -s docker` itself fails at the
   container-`create` step with a `community.docker`-driver/`runc` error, or the Docker socket is not
-  accessible to the invoking user, unrelated to role content — a known local environment issue, not a
-  regression from role changes. `ansible-lint` (production profile) remains the reliable fast local
-  check in that case; let CI provide the authoritative pass/fail for the `docker` scenario.
+  accessible to the invoking user. Both are known local environment issues unrelated to role content,
+  not regressions from role changes. `ansible-lint` (production profile) remains the reliable fast
+  local check in that case; let CI provide the authoritative pass/fail for the `docker` scenario.
 - Prefer fixing lint/test failures over suppressing them; treat suppression as a last resort requiring
   justification.
 
@@ -111,7 +111,7 @@ secure-by-default, operationally reliable, maintainable, and auditable changes.
 - Note any intentional deviation from the security-first, minimal-`become` intent of the role.
 - Every role variable is declared in three places that must be changed together: `defaults/main.yml`,
   the matching option in `meta/argument_specs.yml` (type and default), and the README's "Role
-  variables" table. A variable added or renamed in only one of them is a defect — `argument_specs.yml`
+  variables" table. A variable added or renamed in only one of them is a defect: `argument_specs.yml`
   is validated at run time, so a stale entry there fails the play rather than merely drifting.
 - `molecule/default/verify.yml` re-declares several role and `konstruktoid.hardening.*` defaults in its
   own `vars:` block, because verify runs as a separate `ansible-playbook` invocation that cannot see

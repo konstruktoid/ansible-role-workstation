@@ -27,19 +27,51 @@ local machine over the `local` connection plugin, so no SSH access or remote tar
 3. Run the role against the local machine:
 
    ```shell
-   ansible-playbook -i inventory.ini playbook.yml
+   ansible-playbook -K -i inventory.ini playbook.yml
    ```
+
+   `-K` is required unless the account has passwordless sudo; see
+   [Privilege escalation and `-K`](#privilege-escalation-and--k).
 
 To apply the role to a remote host instead, add the host to an inventory and reference the role from a
 playbook as shown in [Playbook example](#playbook-example), or run a subset of the role using the tags
 declared in `tasks/main.yml`, for example `--tags docker,uv`.
+
+### Privilege escalation and `-K`
+
+Run the playbook as the unprivileged account that the workstation is being set up for, not as root,
+and pass `-K` (`--ask-become-pass`) so ansible-core can supply that account's password to sudo. Without
+it, the first task that elevates fails with `Missing sudo password`, and the run stops partway through.
+`-K` can be omitted only where sudo is configured `NOPASSWD` for the account, as it is in the Molecule
+scenarios.
+
+The prompt is for the invoking account's own password, so the account must already be able to elevate
+through sudo. On Ubuntu that means membership in the `sudo` group.
+
+Most of the role never elevates. `-K` is needed because these parts do:
+
+| Elevates | Why |
+| --- | --- |
+| The fifteen `konstruktoid.hardening.*` roles | They edit system configuration under `/etc` and manage systemd units; each role handles its own `become` internally. |
+| `tasks/packages.yml`, `tasks/docker.yml`, `tasks/github_cli.yml` | apt package installation, and the GPG keyrings and `deb822` repository definitions under `/etc/apt`. |
+| The `docker` group-membership task in `tasks/docker.yml` | Modifying an account's supplementary groups is a root operation. |
+
+Everything else, namely `uv`, tox, the Claude Code CLI, and the `copilot.vim` clone, only writes to the
+connecting user's home directory and is pinned to `become: false` on its import in `tasks/main.yml`, so
+those tasks stay unprivileged even when the role is included from a playbook that sets `become: true`
+for the whole play. Running the entire play as root is not supported: the tools would be installed
+into root's home directory rather than the intended account's.
+
+A run with every elevating part disabled (`workstation_harden_*`, `workstation_docker_install` and
+`workstation_gh_install` set to `false`, and `tasks/packages.yml` skipped with
+`--skip-tags packages`) needs no `-K` at all.
 
 ### sudo-rs and `become_exe`
 
 `playbook.yml` sets `become_exe: sudo.ws`, and the [Playbook example](#playbook-example) below does the
 same. This is required, not incidental. Ubuntu Resolute points `/usr/bin/sudo` at
 [sudo-rs](https://github.com/trifectatechfoundation/sudo-rs), whose password prompt ansible-core does
-not recognise, so any task using `become` hangs until it fails with `Timed out waiting for become
+not recognize, so any task using `become` hangs until it fails with `Timed out waiting for become
 success`. `sudo.ws` is the classic sudo binary, registered as an `update-alternatives` entry by the
 `sudo` package, and pointing `become_exe` at it avoids the prompt mismatch.
 
@@ -58,6 +90,9 @@ entry, so no password prompt is ever produced.
 - Ansible-core 2.18 or later.
 - Ubuntu Resolute (26.04). The role does not gate its tasks on `ansible_facts.distribution`, so running
   it against another operating system produces undefined results.
+- An unprivileged account that can elevate through sudo, and `-K` on the command line to supply its
+  password unless sudo is configured `NOPASSWD` for that account. See
+  [Privilege escalation and `-K`](#privilege-escalation-and--k).
 - The collections listed in `requirements.yml`:
 
   ```shell
@@ -73,7 +108,12 @@ entry, so no password prompt is ever produced.
   root: apt package and repository management, Docker group membership, and the hardening role
   includes (which manage their own `become` internally). Tool installations that only need to write to
   the connecting user's home directory, such as `uv`, `tox`, the Claude Code CLI, and `copilot.vim`,
-  never use `become`.
+  never use `become`, and are pinned to `become: false` in `tasks/main.yml` so a play-level
+  `become: true` in a consuming playbook cannot elevate them. See
+  [Privilege escalation and `-K`](#privilege-escalation-and--k) for what this means at run time.
+- **Restrictive file permissions.** Files the role manages directly carry an explicit owner, group, and
+  mode. The apt keyrings under `/etc/apt/keyrings` are root-owned and mode `0644`; `~/.npmrc` is
+  created mode `0600`, because npm also stores registry credentials there.
 
 ## Playbook example
 
@@ -87,7 +127,9 @@ entry, so no password prompt is ever produced.
         name: workstation
 ```
 
-See [sudo-rs and `become_exe`](#sudo-rs-and-become_exe) for why `become_exe` is set.
+Run it with `ansible-playbook -K`, and do not set `become: true` on the play; see
+[Privilege escalation and `-K`](#privilege-escalation-and--k). See
+[sudo-rs and `become_exe`](#sudo-rs-and-become_exe) for why `become_exe` is set.
 
 ## Role variables
 
@@ -166,7 +208,8 @@ against a single Ubuntu Resolute target:
 Both scenarios converge by running the role, and `molecule/default/verify.yml` (reused by the `docker`
 scenario) asserts that the expected packages are installed, the connecting user is a member of the
 `docker` group, Docker Engine is running, `uv` and tox are installed and functional, the Claude Code
-CLI and `copilot.vim` are present, and a representative subset of the hardening changes took effect
+CLI and `copilot.vim` are present, `~/.npmrc` and the apt keyrings have the expected owner and mode,
+and a representative subset of the hardening changes took effect
 (root account locked, Apport disabled, unnecessary system users removed, PATH hardening in place,
 `systemd-timesyncd` and `systemd-resolved` configured).
 

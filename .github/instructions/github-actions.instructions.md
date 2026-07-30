@@ -8,6 +8,7 @@ Apply these rules to workflow definitions (`lint.yml`, `molecule.yml`, `issues.y
 `dependency-review.yml`, `slsa.yml`).
 
 ## Security-first workflow design
+
 - Use least-privilege `permissions`, denying by default. Every workflow declares `permissions: {}` at
   the top level and grants scopes per job, so one compromised job cannot reach another job's token
   scope. Never grant a scope at workflow level. Add only the scopes a job's steps actually call, with
@@ -19,8 +20,8 @@ Apply these rules to workflow definitions (`lint.yml`, `molecule.yml`, `issues.y
   needs them — `slsa.yml`'s provenance job runs only for `refs/tags/`, so branch pushes never mint an
   OIDC token.
 - Keep triggers narrow (`branches`, `paths`, event types) and avoid unnecessary execution scope.
-- Pin third-party actions to a commit SHA (existing pattern: `uses: owner/action@<sha> # vX.Y.Z`) —
-  never introduce an unpinned `@main`/`@vX` reference for a third-party action. Every third-party
+- Pin third-party actions to a commit SHA (existing pattern: `uses: owner/action@<sha> # vX.Y.Z`).
+  Never introduce an unpinned `@main`/`@vX` reference for a third-party action. Every third-party
   action in this repo is currently SHA-pinned and kept current by the `github-actions` Dependabot
   ecosystem in `.github/dependabot.yml`; the reusable `slsa-github-generator` workflow is the sole
   tag-referenced exception, since a reusable workflow call must resolve a ref the generator supports.
@@ -31,7 +32,7 @@ Apply these rules to workflow definitions (`lint.yml`, `molecule.yml`, `issues.y
   especially inside a job holding a write scope: `slsa.yml` uploads its release asset with
   `gh release upload` rather than an action, removing one dependency from the `contents: write` path.
 - Treat all PR metadata, issue content, artifact contents, and external inputs as untrusted. Do not
-  interpolate `${{ github.* }}` expressions directly into a `run:` script — read the equivalent
+  interpolate `${{ github.* }}` expressions directly into a `run:` script. Read the equivalent
   `GITHUB_*` environment variable instead, as the `Resolve the repository name` steps in `slsa.yml` do.
 - Keep `step-security/harden-runner` as the first step of every job, as done throughout this repo.
 - Set `persist-credentials: false` on `actions/checkout` unless a later step genuinely needs to push
@@ -46,7 +47,7 @@ Apply these rules to workflow definitions (`lint.yml`, `molecule.yml`, `issues.y
 ## High-risk event and runner handling
 - Use extreme caution with `pull_request_target` and `workflow_run`; never execute untrusted code with
   elevated context. This repo currently uses only `pull_request`, `push`, `schedule`, and
-  `workflow_dispatch` — do not switch to `pull_request_target` without a clear, documented need.
+  `workflow_dispatch`. Do not switch to `pull_request_target` without a clear, documented need.
 - Validate artifact provenance before reuse; avoid cross-trust artifact promotion. Be especially
   careful in `slsa.yml`, which produces the release provenance consumers rely on.
 - Treat caches as potentially attacker-influenced; scope keys defensively.
@@ -59,10 +60,10 @@ Apply these rules to workflow definitions (`lint.yml`, `molecule.yml`, `issues.y
   the same group with `cancel-in-progress: false`, so a release-provenance run is never cancelled
   midway.
 - Keep scripts short, fail-fast, and explicit (`set -euo pipefail` for bash steps where appropriate).
-- Do not assume a directory exists just because the standard Ansible role layout defines it — this
-  role has no `handlers/` or `templates/` directory, which is what previously broke the `slsa.yml`
-  build step. Guard filesystem traversal with an existence check.
-- Avoid curl-pipe-to-shell patterns; download, verify, then execute — mirror the checksum-verification
+- Do not assume a directory exists because the standard Ansible role layout defines it. This role has
+  no `handlers/` or `templates/` directory, which is what previously broke the `slsa.yml` build step.
+  Guard filesystem traversal with an existence check.
+- Avoid curl-pipe-to-shell patterns; download, verify, then execute. Mirror the checksum-verification
   discipline used for the `uv` release archive in `tasks/uv.yml` and the `shasums` values in
   `defaults/main.yml`, or the signed apt-repository pattern used for Docker Engine and the GitHub CLI.
   In workflows, prefer a SHA-pinned setup action over an upstream install script: `molecule.yml`

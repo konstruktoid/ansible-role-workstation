@@ -5,6 +5,10 @@
     state: directory
     mode: "0755"
 
+# ~/.npmrc is also where npm writes registry credentials, such as the
+# //registry.npmjs.org/:_authToken that npm login stores. npm only applies a
+# 0600 mode when it creates the file itself, so creating it here with anything
+# more permissive would leave a later token readable by every local account.
 - name: Configure a user-owned npm global install prefix
   ansible.builtin.lineinfile:
     path: "{{ ansible_facts.env.HOME }}/.npmrc"
@@ -13,7 +17,7 @@
     create: true
     owner: "{{ workstation_user }}"
     group: "{{ workstation_user }}"
-    mode: "0644"
+    mode: "0600"
 
 - name: Check for a pre-existing claude binary
   ansible.builtin.stat:

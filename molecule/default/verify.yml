@@ -146,6 +146,41 @@
         success_msg: claude is a symlink managed by npm
         fail_msg: "claude is not an npm-managed symlink: {{ workstation_claude_code_stat.stat }}"
 
+    - name: Stat the npm configuration file
+      ansible.builtin.stat:
+        path: "{{ ansible_facts.env.HOME }}/.npmrc"
+      register: workstation_npmrc_stat
+
+    - name: Assert the npm configuration file is not readable by other accounts
+      ansible.builtin.assert:
+        that:
+          - workstation_npmrc_stat.stat.exists
+          - workstation_npmrc_stat.stat.mode == "0600"
+          - workstation_npmrc_stat.stat.pw_name == ansible_facts.user_id
+        success_msg: "{{ ansible_facts.env.HOME }}/.npmrc is owned by {{ ansible_facts.user_id }} and mode 0600"
+        fail_msg: "{{ ansible_facts.env.HOME }}/.npmrc has an unexpected owner or mode: {{ workstation_npmrc_stat.stat }}"
+
+    - name: Stat the apt keyrings managed by the role
+      ansible.builtin.stat:
+        path: "/etc/apt/keyrings/{{ item }}"
+      loop:
+        - docker.asc
+        - githubcli-archive-keyring.gpg
+      register: workstation_keyring_stat_results
+
+    - name: Assert the apt keyrings are root-owned and not world-writable
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.pw_name == "root"
+          - item.stat.gr_name == "root"
+          - item.stat.mode == "0644"
+        success_msg: "{{ item.stat.path }} has the expected owner and mode"
+        fail_msg: "{{ item.stat.path }} does not have the expected owner or mode"
+      loop: "{{ workstation_keyring_stat_results.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
     - name: Verify copilot.vim was cloned
       ansible.builtin.stat:
         path: "{{ workstation_copilot_vim_dest }}/.git"
