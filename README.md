@@ -91,7 +91,8 @@ entry, so no password prompt is ever produced.
 - Ubuntu Resolute (26.04). The role does not gate its tasks on `ansible_facts.distribution`, so running
   it against another operating system produces undefined results.
 - An unprivileged account that can elevate through sudo, and `-K` on the command line to supply its
-  password. See [Privilege escalation and `-K`](#privilege-escalation-and--k).
+  password unless sudo is configured `NOPASSWD` for that account. See
+  [Privilege escalation and `-K`](#privilege-escalation-and--k).
 - The collections listed in `requirements.yml`:
 
   ```shell
