@@ -75,6 +75,12 @@ jobs:
 
   provenance:
     needs: [build]
+    # Only a tag or release produces provenance anyone consumes: on a branch
+    # push `upload-assets` is false and the `release` job is skipped, so the
+    # generator minted an OIDC token and signed an artifact that was then
+    # thrown away. Gating here keeps the cheap `build` smoke test on every push
+    # while confining `id-token: write` and `contents: write` to release refs.
+    if: startsWith(github.ref, 'refs/tags/')
     permissions:
       actions: read # Needed to read the run metadata being attested to.
       id-token: write # Needed to mint the OIDC token signing the provenance.
@@ -115,8 +121,22 @@ jobs:
         with:
           name: ${{ env.REPOSITORY_NAME }}.sha256
 
+      # `gh` is preinstalled on the runner, so uploading the checksum needs no
+      # third-party action inside this `contents: write` job. GH_REPO is set
+      # explicitly because this job never checks out, leaving `gh` no git remote
+      # to infer the repository from.
       - name: Upload asset
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
-        with:
-          files: |
-            ${{ env.REPOSITORY_NAME }}.sha256
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # The action this replaced created the release when it was missing, so
+          # a plain `git push --tags` still publishes. Keep that behaviour:
+          # `gh release upload` alone fails if no release exists for the tag.
+          if ! gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release create "${GITHUB_REF_NAME}" --generate-notes --verify-tag
+          fi
+          gh release upload "${GITHUB_REF_NAME}" \
+            "${REPOSITORY_NAME}.sha256" --clobber

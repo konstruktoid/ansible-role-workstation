@@ -8,17 +8,28 @@ Apply these rules to workflow definitions (`lint.yml`, `molecule.yml`, `issues.y
 `dependency-review.yml`, `slsa.yml`).
 
 ## Security-first workflow design
-- Use least-privilege `permissions` at workflow/job scope; avoid implicit broad defaults. Every
-  workflow declares a top-level `permissions` block — `contents: read` everywhere except
-  `scorecards.yml`, which needs `read-all` for the analysis. Keep new or edited jobs consistent with
-  that, only widening a specific job when strictly required, as `issues.yml` does for `issues: write`
-  and `slsa.yml`'s provenance and release jobs do for `id-token: write` and `contents: write`.
+- Use least-privilege `permissions`, denying by default. Every workflow declares `permissions: {}` at
+  the top level and grants scopes per job, so one compromised job cannot reach another job's token
+  scope. Never grant a scope at workflow level. Add only the scopes a job's steps actually call, with
+  a trailing comment naming what needs each one, as `issues.yml` does for `issues: write` and
+  `slsa.yml`'s provenance and release jobs do for `id-token: write` and `contents: write`. No scope
+  implies another: a job needing a write scope must still list `contents: read` if it checks out.
+- Keep a job holding a write scope separate from any job that builds or tests untrusted code, so the
+  write token is never present while that code runs. Gate privileged jobs on the ref that actually
+  needs them — `slsa.yml`'s provenance job runs only for `refs/tags/`, so branch pushes never mint an
+  OIDC token.
 - Keep triggers narrow (`branches`, `paths`, event types) and avoid unnecessary execution scope.
 - Pin third-party actions to a commit SHA (existing pattern: `uses: owner/action@<sha> # vX.Y.Z`) —
   never introduce an unpinned `@main`/`@vX` reference for a third-party action. Every third-party
   action in this repo is currently SHA-pinned and kept current by the `github-actions` Dependabot
   ecosystem in `.github/dependabot.yml`; the reusable `slsa-github-generator` workflow is the sole
   tag-referenced exception, since a reusable workflow call must resolve a ref the generator supports.
+  Pin to the latest published release rather than to whatever the file already used, looking the
+  version up at the time of the change. Dependabot applies a deliberate 7-day cooldown, so a release
+  published within the last week is not yet a pin this repo adopts.
+- Prefer a tool preinstalled on the runner over a third-party action when it does the same job,
+  especially inside a job holding a write scope: `slsa.yml` uploads its release asset with
+  `gh release upload` rather than an action, removing one dependency from the `contents: write` path.
 - Treat all PR metadata, issue content, artifact contents, and external inputs as untrusted. Do not
   interpolate `${{ github.* }}` expressions directly into a `run:` script — read the equivalent
   `GITHUB_*` environment variable instead, as the `Resolve the repository name` steps in `slsa.yml` do.
