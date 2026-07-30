@@ -7,4 +7,5 @@ and the [latest published version](https://github.com/konstruktoid/ansible-role-
 
 ## Reporting a Bug or Vulnerability
 
-If you found a bug or vulnerability or just something odd, feel free to submit a issue or improve the code by creating a pull request.
+Report a bug, a vulnerability, or any other unexpected behavior by submitting an issue, or contribute a
+correction by creating a pull request.

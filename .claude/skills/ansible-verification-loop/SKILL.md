@@ -1,6 +1,6 @@
 ---
 name: ansible-verification-loop
-description: This skill should be used when reviewing, writing, or modifying anything under this repository's `workstation` Ansible role — `tasks/`, `defaults/`, `vars/`, `meta/`, `handlers/`, `templates/`, `requirements.yml`, `README.md`'s "Role variables" section, or any `molecule/` scenario. Always consult it before editing role YAML or test fixtures, even for a single-line change, since it defines both the repo's security/quality conventions (FQCN, quoting, `become` scope, checksum pinning) and the bounded lint/test/idempotence verification loop that every change to the role must pass before it is reported done.
+description: This skill should be used when reviewing, writing, or modifying anything under this repository's `workstation` Ansible role, including `tasks/`, `defaults/`, `vars/`, `meta/`, `handlers/`, `templates/`, `requirements.yml`, `README.md`'s "Role variables" section, and any `molecule/` scenario. Always consult it before editing role YAML or test fixtures, even for a single-line change, since it defines both the repo's security/quality conventions (FQCN, quoting, `become` scope, checksum pinning) and the bounded lint/test/idempotence verification loop that every change to the role must pass before it is reported done.
 ---
 
 # ansible-verification-loop
@@ -21,7 +21,7 @@ documented clearly.
 
 ## Before changing anything
 1. Read `defaults/main.yml`, `tasks/main.yml`, and `meta/main.yml`, plus `requirements.yml` for
-   collection dependencies. `tasks/main.yml` imports the other `tasks/*.yml` files in order — trace
+   collection dependencies. `tasks/main.yml` imports the other `tasks/*.yml` files in order. Trace
    which ones apply to the change:
    - `hardening.yml` includes the fifteen `konstruktoid.hardening.*` roles, each gated by its own
      `workstation_harden_*` toggle.
@@ -30,11 +30,11 @@ documented clearly.
      toggle.
    These two files are the authoritative inventory of what the role does; there is no separate
    manifest of hardening roles or tools to cross-check against.
-2. This role targets Ubuntu Resolute (26.04) exclusively — do not add OS-conditional branches for other
-   distributions or reintroduce multi-OS support without an explicit request.
+2. This role targets Ubuntu Resolute (26.04) exclusively. Do not add OS-conditional branches for
+   other distributions or reintroduce multi-OS support without an explicit request.
 
 ## While making the change
-3. Follow `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md` — the
+3. Follow `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md`, the
    authoritative security/quality rules for this repo (FQCN only, double-quoted strings, quoted octal
    `mode` with explicit `owner`/`group`, `workstation_`-prefixed variable names, checksum verification
    on downloaded binaries such as `uv`). Treat the fifteen hardening role toggles, the Docker apt
@@ -46,19 +46,19 @@ documented clearly.
    their own `become` internally). Do not add `become: true` to a task, block, or role default beyond
    what the specific operation requires.
 5. Read the [YAML 1.2.2 specification](https://yaml.org/spec/1.2.2/) before writing or reviewing YAML
-   content — it's the authoritative reference for scalar resolution, quoting, and syntax that
+   content; it is the authoritative reference for scalar resolution, quoting, and syntax that
    `ansible-lint`/`yamllint` don't fully enforce. In particular, watch for:
    - Ambiguous plain scalars that the core schema would resolve as boolean/null instead of a string
-     (`y`/`n`/`yes`/`no`/`on`/`off`/`null`/`~`) — quote them if a string is intended.
+     (`y`/`n`/`yes`/`no`/`on`/`off`/`null`/`~`). Quote them if a string is intended.
    - Numeric-looking plain scalars that could be misread as int/float/octal/sexagesimal (this repo
      already quotes octal `mode` values, e.g. `mode: "0755"`, and version strings such as
      `workstation_uv_release`; keep doing that for any new scalar that looks numeric but must stay a
      string).
    - Tabs used for indentation (YAML block structure requires spaces).
-   - Anchors/aliases (`&`/`*`) or explicit tags (`!!`) — this repo currently uses neither; avoid
-     introducing them unless there's a clear win, since they reduce readability of task files.
+   - Anchors/aliases (`&`/`*`) or explicit tags (`!!`). This repo currently uses neither; avoid
+     introducing them unless there is a clear benefit, since they reduce readability of task files.
    Do not change quoting/formatting purely for spec-purity if it would fight `ansible-lint`'s
-   `production` profile or the repo's `.ansible-lint` rules — those take precedence on any conflict.
+   `production` profile or the repo's `.ansible-lint` rules; those take precedence on any conflict.
 6. Follow the existing conventions and patterns in the codebase: naming, file structure, and style.
 7. If a `defaults/main.yml` variable is added, renamed, retyped, or removed, update both the matching
    option in `meta/argument_specs.yml` and the "Role variables" table in `README.md` to match. The
@@ -70,14 +70,14 @@ documented clearly.
 9. Add or update test coverage for the change:
    - `molecule/default/converge.yml` and `molecule/docker/molecule.yml` (which reuses
      `../default/prepare.yml`, `../default/converge.yml`, and `../default/verify.yml`) both exercise
-     this single role — there is no per-scenario role split. The two scenarios differ only in how the
+     this single role; there is no per-scenario role split. The two scenarios differ only in how the
      target is provisioned: `molecule/default/create.yml` boots a QEMU virtual machine, while
      `molecule/docker/create.yml` starts a privileged container from `molecule_yml.platforms`.
    - Extend `molecule/default/verify.yml` with assertions for new/changed behavior (installed
      packages, file ownership/mode, group membership, service state), following the existing
      `ansible.builtin.assert` pattern. Because verify is a separate `ansible-playbook` run, it cannot
      see `defaults/main.yml` or the `konstruktoid.hardening.*` defaults and instead mirrors the values
-     it needs in its own `vars:` block — update that block whenever a value it mirrors changes.
+     it needs in its own `vars:` block. Update that block whenever a value it mirrors changes.
    - Assertions that depend on a running init system (`systemd_service` state, timers) must stay gated
      on `ansible_facts.virtualization_type not in ["container", "docker", "podman"]`, since the
      `docker` scenario's container runs `sleep 1d` as PID 1 rather than systemd.
@@ -87,7 +87,7 @@ documented clearly.
      values).
 
 ## Verification loop
-Never declare a change done based on the edit alone — the change is only done once it has cleared the
+Never declare a change done based on the edit alone. The change is only done once it has cleared the
 loop below. "Done" means every box in the Verification checklist is checked, not that the edit compiles
 or looks right.
 
@@ -95,53 +95,53 @@ or looks right.
 cycle costs minutes (it boots/upgrades a container); `ansible-lint` costs seconds. Re-running an
 expensive check against code that a cheap check would have already rejected wastes the loop's attempt
 budget on noise instead of on real fixes:
-1. `ansible-lint` (see the command below) — fast, catches most convention violations.
-2. `molecule converge -s docker` / `molecule verify -s docker` — fast iteration once lint is clean; use
+1. `ansible-lint` (see the command below): fast, catches most convention violations.
+2. `molecule converge -s docker` / `molecule verify -s docker`: fast iteration once lint is clean; use
    this while actively fixing converge/verify failures instead of the full `test` cycle.
-3. A full `molecule test -s docker` (or `tox -e docker`) — the authoritative gate. Only run this once
+3. A full `molecule test -s docker` (or `tox -e docker`): the authoritative gate. Only run this once
    converge/verify are passing, since it re-does the create/converge/idempotence/verify/destroy cycle
    from scratch.
 
 **Bound the loop to 3 full attempts.** An attempt is: make a fix, then re-run the checks above from
-step 1. If a checklist item still fails after 3 attempts, stop — do not keep guessing, silently drop the
-requirement, or ship with a known-failing gate. Report to the user instead (see below). Track what
-changed between attempts (even just mentally or in scratch notes) so the final report can say what was
-tried and why it didn't work, not just "it still fails."
+step 1. If a checklist item still fails after 3 attempts, stop. Do not keep guessing, silently drop
+the requirement, or ship with a known-failing gate. Report to the user instead (see below). Track what
+changed between attempts, in scratch notes if needed, so the final report can state what was tried and
+why it did not resolve the failure, rather than only that the check still fails.
 
 **Treat different gate failures as different problems.** A lint failure, an idempotence failure (second
-converge reports changes), and a `verify.yml` assertion failure point at unrelated root causes — fix the
-specific one that failed rather than re-touching unrelated code each retry.
+converge reports changes), and a `verify.yml` assertion failure point at unrelated root causes. Fix
+the specific one that failed rather than re-touching unrelated code each retry.
 
 ### Commands
 - Run `ansible-lint` and confirm a clean exit / expected output (`profile: production`, see
-  `.ansible-lint`). This is the primary quality gate — do not add suppressions to silence findings
+  `.ansible-lint`). This is the primary quality gate; do not add suppressions to silence findings
   from new changes.
 - Run `tox -e docker` and confirm exit code 0. This installs role dependencies (`requirements.yml`),
   runs `ansible-lint`, then invokes `molecule test -s docker` to converge and verify the role in a
   privileged Ubuntu Resolute container, including an idempotence check.
 - Running `molecule test -s docker` directly skips the dependency install and lint steps that
-  `tox -e docker` performs first — run `ansible-galaxy install --force -r requirements.yml` and
+  `tox -e docker` performs first. Run `ansible-galaxy install --force -r requirements.yml` and
   `ansible-lint` yourself beforehand if you use this form instead of `tox`.
 - The `molecule/default` scenario (driven by `tox -e devel`/`upstream`) boots a QEMU/UEFI Ubuntu
   Resolute cloud image (no Vagrant/VirtualBox) and requires `qemu-system-x86_64`, `qemu-img`,
   `genisoimage`, and OVMF firmware on the host. It is not run in CI (`.github/workflows/molecule.yml`
   only runs `tox -e docker` and `tox -e docker-upstream`), so local `create`/`prepare`/`converge`
-  failures there may reflect host virtualization support rather than role content — verify host
+  failures there may reflect host virtualization support rather than role content. Verify host
   tooling before assuming a regression.
 - The `package_management` hardening role sets `system_upgrade: true` by default, which runs a full
   `apt` upgrade on every converge. Expect the first converge in a scenario to take noticeably longer
-  than a typical role; this is expected behavior, not a hang — don't count it as a stalled attempt.
+  than a typical role; this is expected behavior, not a hang. Do not count it as a stalled attempt.
 - On some local/dev machines, `tox -e docker` / `molecule test -s docker` itself fails at the
-  container-`create` step with a `community.docker`-driver/`runc` error unrelated to role content — a
-  known pre-existing local environment issue. If that happens, `ansible-lint` (production profile) is
-  the reliable fast local check, and CI provides the authoritative pass/fail for the `docker` scenario.
-  Say so explicitly in the report rather than counting it as an unresolved attempt against the 3-try
-  budget.
+  container-`create` step with a `community.docker`-driver/`runc` error unrelated to role content.
+  This is a known pre-existing local environment issue. If that happens, `ansible-lint` (production
+  profile) is the reliable fast local check, and CI provides the authoritative pass/fail for the
+  `docker` scenario. Say so explicitly in the report rather than counting it as an unresolved attempt
+  against the 3-try budget.
 
 ### If the loop exhausts its 3 attempts
 Report the issue instead of proceeding or silently giving up:
 - Which checklist item(s) remain unresolved.
-- What was tried across the attempts and why each didn't resolve it.
+- What was tried across the attempts and why each did not resolve it.
 - Detailed reproduction steps and the relevant lint/molecule output or logs.
 
 ## Verification checklist
