@@ -1,10 +1,4 @@
 ---
-- name: Apply workstation hardening
-  ansible.builtin.import_tasks:
-    file: hardening.yml
-  tags:
-    - hardening
-
 - name: Install workstation packages
   ansible.builtin.import_tasks:
     file: packages.yml
@@ -19,11 +13,6 @@
   tags:
     - docker
 
-# uv, npm, tox and copilot.vim only write to the connecting user's home
-# directory, so they are pinned to become: false. A static import applies the
-# keyword to every task it imports, which keeps the privilege boundary in one
-# auditable place and stops a play-level become: true in a consuming playbook
-# from silently installing these tools as root.
 - name: Install uv
   ansible.builtin.import_tasks:
     file: uv.yml
@@ -68,3 +57,9 @@
     - workstation_copilot_vim_install | bool
   tags:
     - copilot_vim
+
+- name: Apply workstation hardening
+  ansible.builtin.import_tasks:
+    file: hardening.yml
+  tags:
+    - hardening
