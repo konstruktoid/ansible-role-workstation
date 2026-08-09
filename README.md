@@ -11,10 +11,15 @@ other Ubuntu releases or distributions.
 See [OVERVIEW.md](OVERVIEW.md) for a high-level overview of the repository's purpose, scope, and
 structure.
 
-The role has two parts. First, it applies the fifteen [konstruktoid.hardening](https://galaxy.ansible.com/ui/repo/published/konstruktoid/hardening/)
-roles included by `tasks/hardening.yml`. Second, it installs the developer tooling that was previously
-applied as a sequence of manual shell commands: Docker Engine, [uv](https://docs.astral.sh/uv/),
-Node.js and npm, the Claude Code CLI, tox, the GitHub CLI, and the `copilot.vim` plugin.
+The role has two parts. First, it installs the developer tooling that was previously applied as a
+sequence of manual shell commands: Docker Engine, [uv](https://docs.astral.sh/uv/), Node.js and npm,
+the Claude Code CLI, tox, the GitHub CLI, and the `copilot.vim` plugin. Second, it applies the fifteen
+[konstruktoid.hardening](https://galaxy.ansible.com/ui/repo/published/konstruktoid/hardening/) roles
+included by `tasks/hardening.yml`.
+
+Hardening is applied last on purpose: the tooling installs pull in apt packages, and an apt
+transaction that installs or upgrades `systemd` re-runs `systemd-sysusers`, which would recreate the
+accounts `konstruktoid.hardening.delete_users` removes.
 
 ## Usage
 

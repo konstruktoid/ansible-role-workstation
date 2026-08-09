@@ -11,12 +11,6 @@
   when:
     - workstation_harden_automatic_updates | bool
 
-- name: Delete unnecessary users
-  ansible.builtin.include_role:
-    name: konstruktoid.hardening.delete_users
-  when:
-    - workstation_harden_delete_users | bool
-
 - name: Update /etc/issue and /etc/motd
   ansible.builtin.include_role:
     name: konstruktoid.hardening.issue
@@ -88,3 +82,9 @@
     name: konstruktoid.hardening.timesyncd
   when:
     - workstation_harden_timesyncd | bool
+
+- name: Delete unnecessary users
+  ansible.builtin.include_role:
+    name: konstruktoid.hardening.delete_users
+  when:
+    - workstation_harden_delete_users | bool
