@@ -102,11 +102,22 @@ budget on noise instead of on real fixes:
    converge/verify are passing, since it re-does the create/converge/idempotence/verify/destroy cycle
    from scratch.
 
-**Bound the loop to 3 full attempts.** An attempt is: make a fix, then re-run the checks above from
-step 1. If a checklist item still fails after 3 attempts, stop. Do not keep guessing, silently drop
-the requirement, or ship with a known-failing gate. Report to the user instead (see below). Track what
-changed between attempts, in scratch notes if needed, so the final report can state what was tried and
-why it did not resolve the failure, rather than only that the check still fails.
+**Bound the loop to 3 full attempts.** One **attempt** is one full fix-and-rerun cycle: apply fixes
+for the findings from the previous run, then re-run the checks above from step 1 to completion.
+Reading output or re-reading a file without changing anything is not an attempt.
+
+- Baseline the loop at 3 attempts.
+- Continue past 3 only while making measurable progress, meaning each cycle ends with strictly fewer
+  findings than the one before it.
+- Stop early, before 3 attempts, if the loop is oscillating: the same findings recur, the count stops
+  dropping, or a fix for one finding reintroduces another.
+- When stopping for either reason, report to the user rather than proceeding or silently giving
+  up. Name the failing check, include its output, and state what was tried.
+
+If a checklist item still fails, do not keep guessing, silently drop the requirement, or ship with a
+known-failing gate; see below for what that report must contain. Track what changed between attempts,
+in scratch notes if needed, so the final report can state why each attempt did not resolve the
+failure, rather than only that the check still fails.
 
 **Treat different gate failures as different problems.** A lint failure, an idempotence failure (second
 converge reports changes), and a `verify.yml` assertion failure point at unrelated root causes. Fix
@@ -144,6 +155,13 @@ Report the issue instead of proceeding or silently giving up:
 - What was tried across the attempts and why each did not resolve it.
 - Detailed reproduction steps and the relevant lint/molecule output or logs.
 
+Ansible output is unusually rich in machine detail: play recaps and `--diff` output name the target
+host, gathered facts carry hostnames, interfaces and internal addresses, and failure messages quote
+absolute paths under the invoking user's home. Strip that before pasting output anywhere it will be
+stored, and never commit it into the repository. The same applies to anything checked in as a fixture:
+use `localhost`, `example.com`, or RFC 5737 addresses (`192.0.2.0/24`) in inventories, host vars, and
+templates rather than a real host.
+
 ## Verification checklist
 - [ ] Lint passes: `ansible-lint`
 - [ ] Tests pass: `tox -e docker` / `molecule test -s docker`
@@ -157,7 +175,16 @@ Report the issue instead of proceeding or silently giving up:
 - [ ] `shasums` in `defaults/main.yml` updated if a pinned tool release changed, with checksums
       verified against upstream
 - [ ] `become` is not used more broadly than the specific task requires
+- [ ] No user or system information committed: inventories, host vars, templates, and any captured
+      lint or molecule output use placeholder hosts and addresses, with no real hostname, home
+      directory path, username, or internal IP
 - [ ] No unrelated files changed
 - [ ] New/changed YAML scalars are unambiguous per the
       [YAML 1.2.2 spec](https://yaml.org/spec/1.2.2/) (no unquoted `y`/`n`/`on`/`off`/`null`-like
       strings, no unquoted numeric-looking strings that must stay strings, no tabs)
+
+## References
+
+- [references/yaml-quoting.md](references/yaml-quoting.md): YAML 1.2.2 scalar resolution and
+  quoting, including the "Norway problem". Read it when a change touches quoting in a YAML file,
+  or when justifying why a value must stay quoted.
