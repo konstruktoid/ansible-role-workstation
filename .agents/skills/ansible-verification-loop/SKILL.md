@@ -114,6 +114,14 @@ Reading output or re-reading a file without changing anything is not an attempt.
 - When stopping for either reason, report to the user rather than proceeding or silently giving
   up. Name the failing check, include its output, and state what was tried.
 
+Stop at 6 attempts regardless. "Strictly fewer findings" permits an unbounded run when each cycle
+clears one finding out of many, and a full `molecule test` cycle costs minutes each time.
+
+Count findings per check, not as one total. The three checks above report unrelated things, and the
+section below treats their failures as different problems, so a single count across them is not
+meaningful: a lint fix that masks an idempotence failure would read as progress. Progress means the
+check that failed improved and no other check regressed.
+
 If a checklist item still fails, do not keep guessing, silently drop the requirement, or ship with a
 known-failing gate; see below for what that report must contain. Track what changed between attempts,
 in scratch notes if needed, so the final report can state why each attempt did not resolve the
@@ -162,6 +170,14 @@ stored, and never commit it into the repository. The same applies to anything ch
 use `localhost`, `example.com`, or RFC 5737 addresses (`192.0.2.0/24`) in inventories, host vars, and
 templates rather than a real host.
 
+Machine identifiers are not the only exposure. Ansible output can also carry passwords, API tokens,
+private keys, vaulted or `no_log`-worthy variable values, and credential-bearing URLs: `--diff` on a
+templated secret prints both versions, a failed `uri` or `get_url` task echoes its headers, and a
+verbose module failure dumps the arguments it was called with. Redact those before the output is
+pasted, stored, uploaded as a CI artifact, or attached to an issue, not only before it is committed.
+When a task handles a secret, `no_log: true` is the fix, so that there is nothing to redact in the
+first place.
+
 ## Verification checklist
 - [ ] Lint passes: `ansible-lint`
 - [ ] Tests pass: `tox -e docker` / `molecule test -s docker`
@@ -178,6 +194,9 @@ templates rather than a real host.
 - [ ] No user or system information committed: inventories, host vars, templates, and any captured
       lint or molecule output use placeholder hosts and addresses, with no real hostname, home
       directory path, username, or internal IP
+- [ ] No secrets in anything reported, stored, or uploaded: no passwords, API tokens, private
+      keys, vault contents, or credential-bearing URLs in pasted output, CI artifacts, or issue
+      attachments, and `no_log: true` set on any task that handles one
 - [ ] No unrelated files changed
 - [ ] New/changed YAML scalars are unambiguous per the
       [YAML 1.2.2 spec](https://yaml.org/spec/1.2.2/) (no unquoted `y`/`n`/`on`/`off`/`null`-like
