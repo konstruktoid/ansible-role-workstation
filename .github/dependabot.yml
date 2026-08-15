@@ -9,3 +9,8 @@ updates:
     # broken version would have been noticed before it is proposed here.
     cooldown:
       default-days: 7
+    groups:
+      # Keep codeql in one pull request so they move together.
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
