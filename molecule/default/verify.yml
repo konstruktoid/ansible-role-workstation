@@ -116,7 +116,11 @@
         cmd: "{{ ansible_facts.env.HOME }}/.local/bin/uv --version"
       changed_when: false
       register: workstation_uv_version_check
-      failed_when: workstation_uv_release not in workstation_uv_version_check.stdout
+      # Matched as a whole token rather than with `in`, which matches
+      # substrings: a pinned 0.11.3 would pass against a reported 0.11.32.
+      failed_when: >-
+        workstation_uv_version_check.stdout
+        | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_uv_release
 
     # The release archives record the uid and gid of the upstream build account,
     # which tar restores unless --no-same-owner is passed, so assert the
@@ -212,7 +216,9 @@
         cmd: "{{ ansible_facts.env.HOME }}/.local/bin/opencode --version"
       changed_when: false
       register: workstation_opencode_version_check
-      failed_when: workstation_opencode_release not in workstation_opencode_version_check.stdout
+      failed_when: >-
+        workstation_opencode_version_check.stdout
+        | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_opencode_release
 
     - name: Stat the GitHub CLI binary
       ansible.builtin.stat:
@@ -234,7 +240,9 @@
         cmd: "{{ ansible_facts.env.HOME }}/.local/bin/gh --version"
       changed_when: false
       register: workstation_gh_version_check
-      failed_when: workstation_gh_release not in workstation_gh_version_check.stdout
+      failed_when: >-
+        workstation_gh_version_check.stdout
+        | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_gh_release
 
     # The GitHub CLI archive also ships a LICENSE file and man pages; only the
     # binary belongs in a directory that is on PATH.

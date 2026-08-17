@@ -25,9 +25,11 @@ documented clearly.
    which ones apply to the change:
    - `hardening.yml` includes the fifteen `konstruktoid.hardening.*` roles, each gated by its own
      `workstation_harden_*` toggle.
-   - `packages.yml`, `docker.yml`, `uv.yml`, `npm.yml`, `tox.yml`, `opencode.yml`, `github_cli.yml`,
-     and `copilot_vim.yml` install the developer tooling, each gated by its own `workstation_*_install`
-     toggle.
+   - `docker.yml`, `uv.yml`, `npm.yml`, `tox.yml`, `opencode.yml`, `github_cli.yml`, and
+     `copilot_vim.yml` install the developer tooling, each gated by its own `workstation_*_install`
+     toggle. `packages.yml` is the exception: it has no boolean toggle and installs whatever
+     `workstation_packages` lists, so it is disabled by emptying that list or by skipping the
+     `packages` tag.
    - `verify.yml` runs last and asserts that each command-line client (`gh`, `claude`, `opencode`) is
      present, executable, owned by the connecting user, and reporting the expected version. Its
      assertions are gated on the same `workstation_*_install` toggles, and the whole file is skipped in
@@ -41,8 +43,9 @@ documented clearly.
 3. Follow `AGENTS.md` and `.agents/instructions/*.md`, the authoritative security/quality rules for
    this repo (FQCN only, double-quoted strings, quoted octal `mode` with explicit `owner`/`group`,
    `workstation_`-prefixed variable names, checksum verification on downloaded binaries such as `uv`,
-   opencode, and `gh`). These files are tool-neutral; anything under `.github/` or `.claude/` is only
-   an entry point pointing at them, so make content changes in `AGENTS.md` and `.agents/`, never in a
+   opencode, and `gh`). These files are tool-neutral; the vendor entry points that point at them
+   (`.github/copilot-instructions.md`, `.github/instructions/**`, and `.claude/skills/**`) hold no
+   rules of their own, so make content changes in `AGENTS.md` and `.agents/`, never in a
    vendor-specific copy. Treat the fifteen hardening role toggles, the Docker apt repository and
    group-membership tasks, the removal of the system-wide `gh` install, and any GPG-key/apt-repository
    setup as high-sensitivity.

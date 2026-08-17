@@ -52,7 +52,9 @@ is what scopes them to a path; the rules themselves stay in `.agents/instruction
   authoritative lists of what the role applies; there is no separate manifest file.
 - Every hardening role and every tool installation must remain independently toggleable through its
   own `workstation_harden_*` or `workstation_*_install` variable. Never collapse these into a single
-  switch.
+  switch. `tasks/packages.yml` is the one exception: it has no boolean toggle and installs whatever
+  `workstation_packages` lists, so it is disabled by emptying that list or by skipping the `packages`
+  tag.
 - `playbook.yml` sets `become_exe: sudo.ws` deliberately. Ubuntu Resolute points `/usr/bin/sudo` at
   `sudo-rs`, whose password prompt ansible-core does not recognize, so `become` tasks hang and fail
   with "Timed out waiting for become success"; `sudo.ws` is the classic sudo binary the `sudo` package

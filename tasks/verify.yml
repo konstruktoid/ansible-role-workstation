@@ -43,7 +43,7 @@
         - name: Assert the GitHub CLI reports the pinned release
           ansible.builtin.assert:
             that:
-              - workstation_gh_release in workstation_gh_verify_version.stdout
+              - workstation_gh_verify_version.stdout | regex_search('[0-9]+\.[0-9]+\.[0-9]+') == workstation_gh_release
             success_msg: "gh reports the pinned release {{ workstation_gh_release }}"
             fail_msg: "gh does not report the pinned release {{ workstation_gh_release }}: {{ workstation_gh_verify_version.stdout }}"
 
@@ -124,6 +124,6 @@
         - name: Assert opencode reports the pinned release
           ansible.builtin.assert:
             that:
-              - workstation_opencode_release in workstation_opencode_verify_version.stdout
+              - workstation_opencode_verify_version.stdout | regex_search('[0-9]+\.[0-9]+\.[0-9]+') == workstation_opencode_release
             success_msg: "opencode reports the pinned release {{ workstation_opencode_release }}"
             fail_msg: "opencode does not report the pinned release {{ workstation_opencode_release }}: {{ workstation_opencode_verify_version.stdout }}"

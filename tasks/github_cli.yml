@@ -51,8 +51,14 @@
 # build account, which tar would otherwise restore when the play connects as
 # root, leaving the binary owned by an account that does not exist on the
 # workstation.
+#
+# The reported version is compared as a whole token rather than with `in`,
+# which matches substrings: a pinned 2.9.7 would look installed when the binary
+# on disk reports 2.9.70.
 - name: Install GitHub CLI {{ workstation_gh_release }}
-  when: workstation_gh_release not in workstation_gh_version_check.stdout
+  when: >-
+    workstation_gh_version_check.stdout
+    | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_gh_release
   block:
     - name: Download GitHub CLI {{ workstation_gh_release }}
       ansible.builtin.get_url:

@@ -21,8 +21,14 @@
 # The glibc, non-baseline archive: Ubuntu Resolute is a glibc distribution, and
 # baseline builds exist only for x86-64 CPUs without the newer instruction set
 # extensions the default build assumes.
+#
+# The reported version is compared as a whole token rather than with `in`,
+# which matches substrings: a pinned 1.18.1 would look installed when the
+# binary on disk reports 1.18.18.
 - name: Install opencode {{ workstation_opencode_release }}
-  when: workstation_opencode_release not in workstation_opencode_version_check.stdout
+  when: >-
+    workstation_opencode_version_check.stdout
+    | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_opencode_release
   block:
     - name: Download opencode {{ workstation_opencode_release }}
       ansible.builtin.get_url:

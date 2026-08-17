@@ -22,7 +22,8 @@ in [`AGENTS.md`](../../AGENTS.md).
   `tasks/*.yml` files runs as the connecting user.
 - Every hardening role include in `tasks/hardening.yml` and every tool-install task file imported from
   `tasks/main.yml` must stay behind its own boolean toggle in `defaults/main.yml`, so a single role or
-  tool can be disabled without affecting the others.
+  tool can be disabled without affecting the others. `tasks/packages.yml` is the one exception: it is
+  always imported and installs whatever the `workstation_packages` list holds.
 - This role targets Ubuntu Resolute (26.04) exclusively; do not add `ansible_facts.os_family` /
   `ansible_facts.distribution` branches for other platforms.
 - New or changed pinned tool releases (currently `workstation_uv_release`,

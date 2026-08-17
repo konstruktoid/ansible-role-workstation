@@ -263,9 +263,10 @@ against a single Ubuntu Resolute target:
 
 Both scenarios converge by running the role, and `molecule/default/verify.yml` (reused by the `docker`
 scenario) asserts that the expected packages are installed, the connecting user is a member of the
-`docker` group, Docker Engine is running, `uv` and tox are installed and functional, the Claude Code
-CLI, opencode, the GitHub CLI, and `copilot.vim` are present, user-owned, and reporting the expected
-version, no system-wide `gh` remains, `~/.npmrc` and the apt keyring have the expected owner and mode,
+`docker` group, Docker Engine is running, `uv` and tox are installed and functional, opencode and the
+GitHub CLI are present, user-owned, and reporting the pinned release, the Claude Code CLI is an
+npm-managed symlink that runs and reports a version, `copilot.vim` has been cloned,
+no system-wide `gh` remains, `~/.npmrc` and the apt keyring have the expected owner and mode,
 and a representative subset of the hardening changes took effect
 (root account locked, Apport disabled, unnecessary system users removed, PATH hardening in place,
 `systemd-timesyncd` and `systemd-resolved` configured).
