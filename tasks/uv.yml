@@ -19,7 +19,12 @@
   failed_when: false
 
 - name: Install uv {{ workstation_uv_release }}
-  when: workstation_uv_release not in workstation_uv_version_check.stdout
+  # The reported version is compared as a whole token rather than with `in`,
+  # which matches substrings: a pinned 0.11.3 would look installed when the
+  # binary on disk reports 0.11.32.
+  when: >-
+    workstation_uv_version_check.stdout
+    | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_uv_release
   block:
     - name: Download uv {{ workstation_uv_release }}
       ansible.builtin.get_url:
@@ -28,11 +33,16 @@
         checksum: "sha256:{{ shasums.workstation_uv_release[workstation_uv_arch] }}"
         mode: "0644"
 
+    # --no-same-owner because the archive records the uid and gid of the
+    # upstream build account, which tar would otherwise restore when the play
+    # connects as root, leaving the binaries owned by an account that does not
+    # exist on the workstation.
     - name: Extract uv into ~/.local/bin
       ansible.builtin.unarchive:
         src: "{{ ansible_facts.env.HOME }}/.cache/uv-{{ workstation_uv_release }}.tar.gz"
         dest: "{{ ansible_facts.env.HOME }}/.local/bin"
         extra_opts:
+          - --no-same-owner
           - --strip-components=1
         remote_src: true
         mode: "0755"

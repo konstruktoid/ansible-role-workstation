@@ -67,8 +67,26 @@ workstation_tox_install: true
 workstation_claude_code_install: true
 workstation_claude_code_package: "@anthropic-ai/claude-code"
 
-# GitHub CLI, installed from the upstream apt repository.
+# opencode, downloaded as a checksum-verified release archive rather than
+# piping the upstream install script through a shell, and extracted into the
+# connecting user's ~/.local/bin so the install never needs become.
+workstation_opencode_install: true
+workstation_opencode_arch: "{{ {'x86_64': 'x64', 'aarch64': 'arm64'}.get(ansible_facts.architecture, ansible_facts.architecture) }}"
+workstation_opencode_release: "1.18.18"
+workstation_opencode_url: "https://github.com/anomalyco/opencode/releases/download/v{{ workstation_opencode_release }}"
+
+# GitHub CLI, downloaded as a checksum-verified release archive and extracted
+# into the connecting user's ~/.local/bin, rather than installed system-wide as
+# an apt package.
 workstation_gh_install: true
+workstation_gh_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts.architecture, ansible_facts.architecture) }}"
+workstation_gh_release: "2.97.0"
+workstation_gh_url: "https://github.com/cli/cli/releases/download/v{{ workstation_gh_release }}"
+
+# Remove a system-wide gh, and the apt repository and keyring an earlier
+# version of this role added for it, so the user-scoped install above is the
+# only gh on the machine. Set to false to keep the apt package.
+workstation_gh_remove_apt: true
 
 # copilot.vim, cloned into the Ansible user's Vim packages directory.
 workstation_copilot_vim_install: true
@@ -80,3 +98,9 @@ shasums:
   workstation_uv_release:
     aarch64: "4d4fa08d95b06642e5800df6a22bd71455f23f988269e18da2847971d8c0bf31"
     x86_64: "aab924fd522efd06f1c5f3b93a243864fc453132c94b2dc49f1371b528a4b967"
+  workstation_opencode_release:
+    arm64: "dcb1b5ec5687b43f87749560021f9203f3809e0ce5ae44ff9be8ae17083fe4ba"
+    x64: "0cddc222418b8553669905a8980c0cda7088f00da24d83d6ac76b01c9fdb2aaf"
+  workstation_gh_release:
+    amd64: "a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112"
+    arm64: "73ea440ecad9c9e284429997ee6f93577bc6f7bc6fba357ef62c53ad8fb641a5"

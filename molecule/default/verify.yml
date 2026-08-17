@@ -24,6 +24,8 @@
       - docker-ce-cli
       - docker-compose-plugin
     workstation_uv_release: "0.11.32"
+    workstation_opencode_release: "1.18.18"
+    workstation_gh_release: "2.97.0"
     workstation_npm_global_prefix: "{{ ansible_facts.env.HOME }}/.local"
     workstation_copilot_vim_dest: "{{ ansible_facts.env.HOME }}/.config/nvim/pack/github/start/copilot.vim"
     workstation_deleted_users:
@@ -73,12 +75,12 @@
         fail_msg: "{{ item }} is not installed"
       loop: "{{ workstation_docker_packages }}"
 
-    - name: Assert GitHub CLI is installed
+    - name: Assert the GitHub CLI is not installed as an apt package
       ansible.builtin.assert:
         that:
-          - "'gh' in ansible_facts.packages"
-        success_msg: gh is installed
-        fail_msg: gh is not installed
+          - "'gh' not in ansible_facts.packages"
+        success_msg: gh is not installed system-wide
+        fail_msg: gh is installed as an apt package, so it is not user-scoped
 
     - name: Verify Ansible user is a member of the docker group
       ansible.builtin.command:
@@ -114,7 +116,34 @@
         cmd: "{{ ansible_facts.env.HOME }}/.local/bin/uv --version"
       changed_when: false
       register: workstation_uv_version_check
-      failed_when: workstation_uv_release not in workstation_uv_version_check.stdout
+      # Matched as a whole token rather than with `in`, which matches
+      # substrings: a pinned 0.11.3 would pass against a reported 0.11.32.
+      failed_when: >-
+        workstation_uv_version_check.stdout
+        | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_uv_release
+
+    # The release archives record the uid and gid of the upstream build account,
+    # which tar restores unless --no-same-owner is passed, so assert the
+    # extracted binaries belong to the account the role installed them for.
+    - name: Stat the binaries extracted from release archives
+      ansible.builtin.stat:
+        path: "{{ ansible_facts.env.HOME }}/.local/bin/{{ item }}"
+      loop:
+        - uv
+        - uvx
+      register: workstation_uv_stat_results
+
+    - name: Assert the extracted uv binaries are owned by the connecting user
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.mode == "0755"
+          - item.stat.pw_name | default("") == ansible_facts.user_id
+        success_msg: "{{ item.item }} is owned by {{ ansible_facts.user_id }} and mode 0755"
+        fail_msg: "{{ item.item }} is missing, or has an unexpected owner or mode: {{ item.stat }}"
+      loop: "{{ workstation_uv_stat_results.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
     - name: Verify tox is installed
       ansible.builtin.stat:
@@ -160,12 +189,127 @@
         success_msg: "{{ ansible_facts.env.HOME }}/.npmrc is owned by {{ ansible_facts.user_id }} and mode 0600"
         fail_msg: "{{ ansible_facts.env.HOME }}/.npmrc has an unexpected owner or mode: {{ workstation_npmrc_stat.stat }}"
 
+    - name: Verify the Claude Code CLI runs
+      ansible.builtin.command:
+        cmd: "{{ workstation_npm_global_prefix }}/bin/claude --version"
+      changed_when: false
+      register: workstation_claude_code_version_check
+      failed_when: workstation_claude_code_version_check.stdout | length == 0
+
+    - name: Stat the opencode binary
+      ansible.builtin.stat:
+        path: "{{ ansible_facts.env.HOME }}/.local/bin/opencode"
+      register: workstation_opencode_stat
+
+    - name: Assert opencode is installed for the connecting user
+      ansible.builtin.assert:
+        that:
+          - workstation_opencode_stat.stat.exists
+          - workstation_opencode_stat.stat.executable
+          - workstation_opencode_stat.stat.mode == "0755"
+          - workstation_opencode_stat.stat.pw_name | default("") == ansible_facts.user_id
+        success_msg: "opencode is installed as {{ ansible_facts.user_id }} in {{ ansible_facts.env.HOME }}/.local/bin, mode 0755"
+        fail_msg: "opencode is missing, not executable, or has an unexpected owner or mode: {{ workstation_opencode_stat.stat }}"
+
+    - name: Verify opencode version
+      ansible.builtin.command:
+        cmd: "{{ ansible_facts.env.HOME }}/.local/bin/opencode --version"
+      changed_when: false
+      register: workstation_opencode_version_check
+      failed_when: >-
+        workstation_opencode_version_check.stdout
+        | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_opencode_release
+
+    - name: Stat the GitHub CLI binary
+      ansible.builtin.stat:
+        path: "{{ ansible_facts.env.HOME }}/.local/bin/gh"
+      register: workstation_gh_stat
+
+    - name: Assert the GitHub CLI is installed for the connecting user
+      ansible.builtin.assert:
+        that:
+          - workstation_gh_stat.stat.exists
+          - workstation_gh_stat.stat.executable
+          - workstation_gh_stat.stat.mode == "0755"
+          - workstation_gh_stat.stat.pw_name | default("") == ansible_facts.user_id
+        success_msg: "gh is installed as {{ ansible_facts.user_id }} in {{ ansible_facts.env.HOME }}/.local/bin, mode 0755"
+        fail_msg: "gh is missing, not executable, or has an unexpected owner or mode: {{ workstation_gh_stat.stat }}"
+
+    - name: Verify GitHub CLI version
+      ansible.builtin.command:
+        cmd: "{{ ansible_facts.env.HOME }}/.local/bin/gh --version"
+      changed_when: false
+      register: workstation_gh_version_check
+      failed_when: >-
+        workstation_gh_version_check.stdout
+        | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_gh_release
+
+    # The GitHub CLI archive also ships a LICENSE file and man pages; only the
+    # binary belongs in a directory that is on PATH.
+    - name: Stat the paths the GitHub CLI archive must not have left in ~/.local/bin
+      ansible.builtin.stat:
+        path: "{{ ansible_facts.env.HOME }}/.local/bin/{{ item }}"
+      loop:
+        - LICENSE
+        - bin
+        - share
+      register: workstation_gh_extra_stat_results
+
+    - name: Assert only the GitHub CLI binary was extracted
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+        success_msg: "{{ item.item }} was not extracted into ~/.local/bin"
+        fail_msg: "{{ item.item }} was extracted into ~/.local/bin"
+      loop: "{{ workstation_gh_extra_stat_results.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    # Each install task removes its archive from ~/.cache once extracted, so a
+    # leftover would mean the cleanup task stopped running.
+    - name: Stat the downloaded release archives
+      ansible.builtin.stat:
+        path: "{{ ansible_facts.env.HOME }}/.cache/{{ item }}"
+      loop:
+        - "uv-{{ workstation_uv_release }}.tar.gz"
+        - "opencode-{{ workstation_opencode_release }}.tar.gz"
+        - "gh-{{ workstation_gh_release }}.tar.gz"
+      register: workstation_archive_stat_results
+
+    - name: Assert the downloaded release archives were removed
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+        success_msg: "{{ item.item }} was removed after extraction"
+        fail_msg: "{{ item.item }} is still in ~/.cache"
+      loop: "{{ workstation_archive_stat_results.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Stat the paths of the removed system-wide GitHub CLI install
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /usr/bin/gh
+        - /etc/apt/keyrings/githubcli-archive-keyring.gpg
+        - /etc/apt/sources.list.d/github-cli.sources
+      register: workstation_gh_system_stat_results
+
+    - name: Assert the system-wide GitHub CLI install was removed
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+        success_msg: "{{ item.item }} does not exist"
+        fail_msg: "{{ item.item }} still exists, so gh is still installed system-wide"
+      loop: "{{ workstation_gh_system_stat_results.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
     - name: Stat the apt keyrings managed by the role
       ansible.builtin.stat:
         path: "/etc/apt/keyrings/{{ item }}"
       loop:
         - docker.asc
-        - githubcli-archive-keyring.gpg
       register: workstation_keyring_stat_results
 
     - name: Assert the apt keyrings are root-owned and not world-writable

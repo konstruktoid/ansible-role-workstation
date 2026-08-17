@@ -46,10 +46,17 @@ control can be disabled without affecting the others.
 
 **Developer tooling installation** installs the software a developer is expected to need on a
 workstation: Docker Engine, the `uv` Python package and project manager, Node.js and npm, the Claude
-Code command-line interface (CLI), tox, the GitHub CLI, and the `copilot.vim` plugin. Each tool is
-installed through a mechanism appropriate to its trust model, for example a checksum-verified release
-archive for `uv`, or a signed upstream apt repository for Docker Engine and the GitHub CLI, rather
-than through a generic install script executed with elevated trust.
+Code command-line interface (CLI), tox, opencode, the GitHub CLI, and the `copilot.vim` plugin. Each
+tool is installed through a mechanism appropriate to its trust model, for example a checksum-verified
+release archive for `uv`, opencode, and the GitHub CLI, or a signed upstream apt repository for Docker
+Engine, rather than through a generic install script executed with elevated trust. The command-line
+clients are installed under the connecting user's home directory rather than system-wide, so no client
+binary is shared between accounts.
+
+**Install verification** runs after the tooling and hardening and asserts that each command-line
+client is present, executable, owned by the connecting user, and reporting the expected version, so a
+failed download, an upstream archive whose layout changed, or an install that regressed into a
+system-wide one fails the run rather than surfacing the first time the tool is used.
 
 **Role variables and defaults** define every toggle and configuration point exposed by the role,
 including which account tooling is installed for, which packages are installed, and the pinned
@@ -59,8 +66,9 @@ be selectively enabled, disabled, or reconfigured without modifying task logic.
 **Test harness** exercises the role through two independent Molecule scenarios, one using a
 QEMU-booted virtual machine and the other using a privileged container, both converging the same role
 and verifying the same outcomes: expected packages present, Docker group membership granted, Docker
-Engine running, `uv` and tox functional, the Claude Code CLI and `copilot.vim` present, and a
-representative sample of the hardening changes in effect. The test harness confirms that hardening and
+Engine running, `uv` and tox functional, the Claude Code CLI, opencode, the GitHub CLI, and
+`copilot.vim` present and user-owned, no system-wide GitHub CLI left over from an earlier version of
+the role, and a representative sample of the hardening changes in effect. The test harness confirms that hardening and
 tooling continue to behave correctly as they change. Continuous integration runs the linting and the
 container-based scenario automatically, against both the released and the development version of
 Ansible, and complements them with supply-chain checks: dependency review on pull requests, an

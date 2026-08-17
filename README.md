@@ -11,11 +11,14 @@ other Ubuntu releases or distributions.
 See [OVERVIEW.md](OVERVIEW.md) for a high-level overview of the repository's purpose, scope, and
 structure.
 
-The role has two parts. First, it installs the developer tooling that was previously applied as a
+The role has three parts. First, it installs the developer tooling that was previously applied as a
 sequence of manual shell commands: Docker Engine, [uv](https://docs.astral.sh/uv/), Node.js and npm,
-the Claude Code CLI, tox, the GitHub CLI, and the `copilot.vim` plugin. Second, it applies the fifteen
+the Claude Code CLI, tox, [opencode](https://opencode.ai/), the GitHub CLI, and the `copilot.vim`
+plugin. Second, it applies the fifteen
 [konstruktoid.hardening](https://galaxy.ansible.com/ui/repo/published/konstruktoid/hardening/) roles
-included by `tasks/hardening.yml`.
+included by `tasks/hardening.yml`. Third, it verifies that the command-line clients it installed are
+present, executable, owned by the connecting user, and reporting the expected version; see
+[Install verification](#install-verification).
 
 Hardening is applied last on purpose: the tooling installs pull in apt packages, and an apt
 transaction that installs or upgrades `systemd` re-runs `systemd-sysusers`, which would recreate the
@@ -58,17 +61,19 @@ Most of the role never elevates. `-K` is needed because these parts do:
 | Elevates | Why |
 | --- | --- |
 | The fifteen `konstruktoid.hardening.*` roles | They edit system configuration under `/etc` and manage systemd units; each role handles its own `become` internally. |
-| `tasks/packages.yml`, `tasks/docker.yml`, `tasks/github_cli.yml` | apt package installation, and the GPG keyrings and `deb822` repository definitions under `/etc/apt`. |
+| `tasks/packages.yml`, `tasks/docker.yml` | apt package installation, and the GPG keyring and `deb822` repository definition under `/etc/apt`. |
 | The `docker` group-membership task in `tasks/docker.yml` | Modifying an account's supplementary groups is a root operation. |
+| The removal block in `tasks/github_cli.yml` | Removing the system-wide `gh` apt package, repository definition, and keyring an earlier version of this role installed. Skipped when `workstation_gh_remove_apt` is `false`. |
 
-Everything else, namely `uv`, tox, the Claude Code CLI, and the `copilot.vim` clone, only writes to the
-connecting user's home directory and is pinned to `become: false` on its import in `tasks/main.yml`, so
-those tasks stay unprivileged even when the role is included from a playbook that sets `become: true`
-for the whole play. Running the entire play as root is not supported: the tools would be installed
-into root's home directory rather than the intended account's.
+Everything else, namely `uv`, tox, the Claude Code CLI, opencode, the GitHub CLI, and the
+`copilot.vim` clone, only writes to the connecting user's home directory and is pinned to
+`become: false` on its import in `tasks/main.yml`, so those tasks stay unprivileged even when the role
+is included from a playbook that sets `become: true` for the whole play. Running the entire play as
+root is not supported: the tools would be installed into root's home directory rather than the
+intended account's.
 
-A run with every elevating part disabled (`workstation_harden_*`, `workstation_docker_install` and
-`workstation_gh_install` set to `false`, and `tasks/packages.yml` skipped with
+A run with every elevating part disabled (`workstation_harden_*` and `workstation_docker_install` set
+to `false`, `workstation_gh_remove_apt` set to `false`, and `tasks/packages.yml` skipped with
 `--skip-tags packages`) needs no `-K` at all.
 
 ### sudo-rs and `become_exe`
@@ -112,10 +117,15 @@ entry, so no password prompt is ever produced.
 - **Minimal `become`.** Tasks run without elevated privileges unless the underlying operation requires
   root: apt package and repository management, Docker group membership, and the hardening role
   includes (which manage their own `become` internally). Tool installations that only need to write to
-  the connecting user's home directory, such as `uv`, `tox`, the Claude Code CLI, and `copilot.vim`,
-  never use `become`, and are pinned to `become: false` in `tasks/main.yml` so a play-level
-  `become: true` in a consuming playbook cannot elevate them. See
+  the connecting user's home directory, such as `uv`, `tox`, the Claude Code CLI, opencode, the GitHub
+  CLI, and `copilot.vim`, never use `become`, and are pinned to `become: false` in `tasks/main.yml` so
+  a play-level `become: true` in a consuming playbook cannot elevate them. See
   [Privilege escalation and `-K`](#privilege-escalation-and--k) for what this means at run time.
+- **Per-user, not system-wide.** Every command-line client the role installs, namely the Claude Code
+  CLI, opencode, and the GitHub CLI, is installed under the connecting user's home directory rather
+  than into `/usr`, so no client binary is shared between accounts or writable only by root. A
+  system-wide `gh` left behind by an earlier version of this role is removed; see
+  [Install verification](#install-verification).
 - **Restrictive file permissions.** Files the role manages directly carry an explicit owner, group, and
   mode. The apt keyrings under `/etc/apt/keyrings` are root-owned and mode `0644`; `~/.npmrc` is
   created mode `0600`, because npm also stores registry credentials there.
@@ -171,7 +181,15 @@ Defined in `defaults/main.yml` and validated at run time by the role argument sp
 | `workstation_tox_install` | `true` | Install tox as a `uv` tool. |
 | `workstation_claude_code_install` | `true` | Install the Claude Code CLI through npm. |
 | `workstation_claude_code_package` | `"@anthropic-ai/claude-code"` | npm package installed for Claude Code. |
-| `workstation_gh_install` | `true` | Install the GitHub CLI from the upstream apt repository. |
+| `workstation_opencode_install` | `true` | Install `opencode` into the connecting user's `~/.local/bin`. |
+| `workstation_opencode_arch` | see `defaults/main.yml` | Architecture used to select the `opencode` release archive. |
+| `workstation_opencode_release` | `"1.18.18"` | Pinned `opencode` release. |
+| `workstation_opencode_url` | see `defaults/main.yml` | Base URL for the `opencode` release archive. |
+| `workstation_gh_install` | `true` | Install the GitHub CLI into the connecting user's `~/.local/bin`. |
+| `workstation_gh_arch` | see `defaults/main.yml` | Architecture used to select the GitHub CLI release archive. |
+| `workstation_gh_release` | `"2.97.0"` | Pinned GitHub CLI release. |
+| `workstation_gh_url` | see `defaults/main.yml` | Base URL for the GitHub CLI release archive. |
+| `workstation_gh_remove_apt` | `true` | Remove a system-wide `gh` apt package, repository, and keyring installed by an earlier version of this role. |
 | `workstation_copilot_vim_install` | `true` | Clone `copilot.vim`. |
 | `workstation_copilot_vim_repo` | `"https://github.com/github/copilot.vim.git"` | Repository cloned for `copilot.vim`. |
 | `workstation_copilot_vim_version` | `release` | Git ref checked out for `copilot.vim`. |
@@ -191,15 +209,48 @@ instead.
 
 ## Checksum verification
 
-`uv` is installed from a release archive downloaded over HTTPS and verified against the SHA-256
-checksum recorded in `shasums.workstation_uv_release`, rather than by executing the upstream install
-script. When `workstation_uv_release` is updated, update the corresponding checksums for both the
-`x86_64` and `aarch64` architectures, and verify the new checksums against the values published by the
-[uv release](https://github.com/astral-sh/uv/releases) before committing them.
+`uv`, opencode, and the GitHub CLI are each installed from a release archive downloaded over HTTPS and
+verified against the SHA-256 checksum recorded under `shasums` in `defaults/main.yml`, rather than by
+executing an upstream install script. `opencode.ai/install` and the `uv` installer both expect to be
+piped into a shell, which would run unreviewed code fetched at provisioning time; neither is used.
 
-Docker Engine and the GitHub CLI are installed from their respective upstream apt repositories, added
-using a GPG-signed keyring under `/etc/apt/keyrings` and the `ansible.builtin.deb822_repository`
-module, following the same pattern used by both projects' official installation instructions.
+Each pinned release has its own `shasums` entry, keyed by the architecture value the matching
+`workstation_*_arch` variable resolves to:
+
+| Variable | `shasums` key | Upstream checksums |
+| --- | --- | --- |
+| `workstation_uv_release` | `aarch64`, `x86_64` | The `.sha256` files attached to each [uv release](https://github.com/astral-sh/uv/releases). |
+| `workstation_opencode_release` | `arm64`, `x64` | Not published for the CLI archives; compute them from the [opencode release](https://github.com/anomalyco/opencode/releases) assets. |
+| `workstation_gh_release` | `amd64`, `arm64` | The `gh_<version>_checksums.txt` file attached to each [GitHub CLI release](https://github.com/cli/cli/releases). |
+
+When a pinned release is bumped, update both architectures' checksums in the same change, and verify
+them against upstream before committing. opencode publishes checksums only for its desktop
+application artifacts, not for the `opencode-linux-*.tar.gz` CLI archives, so its entries are computed
+from the downloaded assets; the recorded value still pins the exact artifact that was reviewed, so a
+later substitution fails the download task.
+
+Docker Engine is installed from its upstream apt repository, added using a GPG-signed keyring under
+`/etc/apt/keyrings` and the `ansible.builtin.deb822_repository` module, following the pattern used by
+the project's official installation instructions.
+
+## Install verification
+
+`tasks/verify.yml` runs after the tooling and hardening, and asserts for each of the GitHub CLI, the
+Claude Code CLI, and opencode that:
+
+- the binary exists in the connecting user's home directory and is executable,
+- it is owned by that account, which is what keeps the per-user install property from regressing into
+  a system-wide one, and
+- running it reports the pinned release (`gh` and opencode) or reports a version at all (the Claude
+  Code CLI, which is installed from npm and therefore not pinned to a release in this role).
+
+When `workstation_gh_remove_apt` is `true`, it also asserts that no `/usr/bin/gh` remains, so a
+migration from the previous apt-based install is confirmed to have completed rather than having left
+two copies of `gh` on the machine.
+
+Each client's assertions are skipped along with its `workstation_*_install` toggle, and the whole file
+is skipped in check mode, where the installs it checks have not run. Run it on its own against an
+already provisioned machine with `--tags verify`.
 
 ## Testing with molecule
 
@@ -212,8 +263,10 @@ against a single Ubuntu Resolute target:
 
 Both scenarios converge by running the role, and `molecule/default/verify.yml` (reused by the `docker`
 scenario) asserts that the expected packages are installed, the connecting user is a member of the
-`docker` group, Docker Engine is running, `uv` and tox are installed and functional, the Claude Code
-CLI and `copilot.vim` are present, `~/.npmrc` and the apt keyrings have the expected owner and mode,
+`docker` group, Docker Engine is running, `uv` and tox are installed and functional, opencode and the
+GitHub CLI are present, user-owned, and reporting the pinned release, the Claude Code CLI is an
+npm-managed symlink that runs and reports a version, `copilot.vim` has been cloned,
+no system-wide `gh` remains, `~/.npmrc` and the apt keyring have the expected owner and mode,
 and a representative subset of the hardening changes took effect
 (root account locked, Apport disabled, unnecessary system users removed, PATH hardening in place,
 `systemd-timesyncd` and `systemd-resolved` configured).

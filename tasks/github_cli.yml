@@ -1,37 +1,85 @@
 ---
-- name: Install GitHub CLI from the upstream apt repository
+# gh used to be installed system-wide from the upstream apt repository. It is
+# now a user-scoped install like uv, tox and the Claude Code CLI, so the apt
+# package, repository definition and keyring that earlier versions of this role
+# added are removed here. This is the one part of the gh install that needs
+# root, and it is the only block in this file that elevates.
+- name: Remove the system-wide GitHub CLI installation
   become: true
+  when:
+    - workstation_gh_remove_apt | bool
   block:
-    - name: Ensure apt keyrings directory exists
-      ansible.builtin.file:
-        path: /etc/apt/keyrings
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-
-    - name: Add GitHub CLI GPG key
-      ansible.builtin.get_url:
-        url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
-        dest: /etc/apt/keyrings/githubcli-archive-keyring.gpg
-        owner: root
-        group: root
-        mode: "0644"
-
-    - name: Add GitHub CLI apt repository
-      ansible.builtin.deb822_repository:
-        name: github-cli
-        types: deb
-        uris: https://cli.github.com/packages
-        suites: stable
-        components: main
-        architectures: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts.architecture, ansible_facts.architecture) }}"
-        signed_by: /etc/apt/keyrings/githubcli-archive-keyring.gpg
-        install_python_debian: true
-
-    - name: Install GitHub CLI package
+    - name: Remove the GitHub CLI apt package
       ansible.builtin.apt:
         name: gh
-        state: present
-        install_recommends: false
-        update_cache: true
+        state: absent
+
+    - name: Remove the GitHub CLI apt repository
+      ansible.builtin.deb822_repository:
+        name: github-cli
+        state: absent
+        install_python_debian: true
+
+    - name: Remove the GitHub CLI apt keyring
+      ansible.builtin.file:
+        path: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+        state: absent
+
+- name: Ensure ~/.local/bin exists
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.local/bin"
+    state: directory
+    mode: "0755"
+
+- name: Ensure ~/.cache exists
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.cache"
+    state: directory
+    mode: "0700"
+
+- name: Get installed GitHub CLI version
+  ansible.builtin.command:
+    cmd: "{{ ansible_facts.env.HOME }}/.local/bin/gh --version"
+  register: workstation_gh_version_check
+  changed_when: false
+  failed_when: false
+
+# Only the binary is extracted. The archive also carries a LICENSE file and the
+# man pages, neither of which belongs in a directory that is on PATH.
+#
+# --no-same-owner because the archive records the uid and gid of the upstream
+# build account, which tar would otherwise restore when the play connects as
+# root, leaving the binary owned by an account that does not exist on the
+# workstation.
+#
+# The reported version is compared as a whole token rather than with `in`,
+# which matches substrings: a pinned 2.9.7 would look installed when the binary
+# on disk reports 2.9.70.
+- name: Install GitHub CLI {{ workstation_gh_release }}
+  when: >-
+    workstation_gh_version_check.stdout
+    | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_gh_release
+  block:
+    - name: Download GitHub CLI {{ workstation_gh_release }}
+      ansible.builtin.get_url:
+        url: "{{ workstation_gh_url }}/gh_{{ workstation_gh_release }}_linux_{{ workstation_gh_arch }}.tar.gz"
+        dest: "{{ ansible_facts.env.HOME }}/.cache/gh-{{ workstation_gh_release }}.tar.gz"
+        checksum: "sha256:{{ shasums.workstation_gh_release[workstation_gh_arch] }}"
+        mode: "0644"
+
+    - name: Extract the GitHub CLI binary into ~/.local/bin
+      ansible.builtin.unarchive:
+        src: "{{ ansible_facts.env.HOME }}/.cache/gh-{{ workstation_gh_release }}.tar.gz"
+        dest: "{{ ansible_facts.env.HOME }}/.local/bin"
+        include:
+          - "gh_{{ workstation_gh_release }}_linux_{{ workstation_gh_arch }}/bin/gh"
+        extra_opts:
+          - --no-same-owner
+          - --strip-components=2
+        remote_src: true
+        mode: "0755"
+
+    - name: Remove downloaded GitHub CLI archive
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.cache/gh-{{ workstation_gh_release }}.tar.gz"
+        state: absent
