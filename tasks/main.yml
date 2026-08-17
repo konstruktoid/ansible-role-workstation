@@ -41,9 +41,22 @@
   tags:
     - tox
 
+- name: Install opencode
+  ansible.builtin.import_tasks:
+    file: opencode.yml
+  become: false
+  when:
+    - workstation_opencode_install | bool
+  tags:
+    - opencode
+
+# Imported with become: false like the other user-scoped tool installs. The
+# removal of the system-wide gh install is the only elevating part of the file,
+# and sets become: true on its own block.
 - name: Install GitHub CLI
   ansible.builtin.import_tasks:
     file: github_cli.yml
+  become: false
   when:
     - workstation_gh_install | bool
   tags:
@@ -63,3 +76,12 @@
     file: hardening.yml
   tags:
     - hardening
+
+# Last, so the clients are verified in the state the machine is actually left
+# in, after hardening has been applied.
+- name: Verify the installed command-line clients
+  ansible.builtin.import_tasks:
+    file: verify.yml
+  become: false
+  tags:
+    - verify

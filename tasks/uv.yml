@@ -28,11 +28,16 @@
         checksum: "sha256:{{ shasums.workstation_uv_release[workstation_uv_arch] }}"
         mode: "0644"
 
+    # --no-same-owner because the archive records the uid and gid of the
+    # upstream build account, which tar would otherwise restore when the play
+    # connects as root, leaving the binaries owned by an account that does not
+    # exist on the workstation.
     - name: Extract uv into ~/.local/bin
       ansible.builtin.unarchive:
         src: "{{ ansible_facts.env.HOME }}/.cache/uv-{{ workstation_uv_release }}.tar.gz"
         dest: "{{ ansible_facts.env.HOME }}/.local/bin"
         extra_opts:
+          - --no-same-owner
           - --strip-components=1
         remote_src: true
         mode: "0755"

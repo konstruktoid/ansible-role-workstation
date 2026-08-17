@@ -25,26 +25,37 @@ documented clearly.
    which ones apply to the change:
    - `hardening.yml` includes the fifteen `konstruktoid.hardening.*` roles, each gated by its own
      `workstation_harden_*` toggle.
-   - `packages.yml`, `docker.yml`, `uv.yml`, `npm.yml`, `tox.yml`, `github_cli.yml`, and
-     `copilot_vim.yml` install the developer tooling, each gated by its own `workstation_*_install`
+   - `packages.yml`, `docker.yml`, `uv.yml`, `npm.yml`, `tox.yml`, `opencode.yml`, `github_cli.yml`,
+     and `copilot_vim.yml` install the developer tooling, each gated by its own `workstation_*_install`
      toggle.
+   - `verify.yml` runs last and asserts that each command-line client (`gh`, `claude`, `opencode`) is
+     present, executable, owned by the connecting user, and reporting the expected version. Its
+     assertions are gated on the same `workstation_*_install` toggles, and the whole file is skipped in
+     check mode.
    These two files are the authoritative inventory of what the role does; there is no separate
    manifest of hardening roles or tools to cross-check against.
 2. This role targets Ubuntu Resolute (26.04) exclusively. Do not add OS-conditional branches for
    other distributions or reintroduce multi-OS support without an explicit request.
 
 ## While making the change
-3. Follow `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md`, the
-   authoritative security/quality rules for this repo (FQCN only, double-quoted strings, quoted octal
-   `mode` with explicit `owner`/`group`, `workstation_`-prefixed variable names, checksum verification
-   on downloaded binaries such as `uv`). Treat the fifteen hardening role toggles, the Docker apt
-   repository and group-membership tasks, and any GPG-key/apt-repository setup as high-sensitivity.
-4. Minimize `become`. Most of this role's own tasks (uv, tox, npm global installs, the Git clone of
-   copilot.vim) are deliberately user-scoped and must stay that way. `become: true` is only acceptable
-   where the underlying operation genuinely requires root: apt package/repository management, the
-   `docker` group membership change, and the `konstruktoid.hardening.*` role includes (which manage
-   their own `become` internally). Do not add `become: true` to a task, block, or role default beyond
-   what the specific operation requires.
+3. Follow `AGENTS.md` and `.agents/instructions/*.md`, the authoritative security/quality rules for
+   this repo (FQCN only, double-quoted strings, quoted octal `mode` with explicit `owner`/`group`,
+   `workstation_`-prefixed variable names, checksum verification on downloaded binaries such as `uv`,
+   opencode, and `gh`). These files are tool-neutral; anything under `.github/` or `.claude/` is only
+   an entry point pointing at them, so make content changes in `AGENTS.md` and `.agents/`, never in a
+   vendor-specific copy. Treat the fifteen hardening role toggles, the Docker apt repository and
+   group-membership tasks, the removal of the system-wide `gh` install, and any GPG-key/apt-repository
+   setup as high-sensitivity.
+4. Minimize `become`. Most of this role's own tasks (uv, tox, npm global installs, the opencode and
+   `gh` archive installs, the Git clone of copilot.vim) are deliberately user-scoped and must stay that
+   way. `become: true` is only acceptable where the underlying operation genuinely requires root: apt
+   package/repository management, the `docker` group membership change, the removal of the system-wide
+   `gh` install in `tasks/github_cli.yml`, and the `konstruktoid.hardening.*` role includes (which
+   manage their own `become` internally). Do not add `become: true` to a task, block, or role default
+   beyond what the specific operation requires.
+   The command-line clients are installed under the connecting user's home directory, never
+   system-wide. Do not convert one back to an apt package or a root-owned prefix, and keep the
+   ownership assertions in `tasks/verify.yml` intact.
 5. Read the [YAML 1.2.2 specification](https://yaml.org/spec/1.2.2/) before writing or reviewing YAML
    content; it is the authoritative reference for scalar resolution, quoting, and syntax that
    `ansible-lint`/`yamllint` don't fully enforce. In particular, watch for:
@@ -64,9 +75,16 @@ documented clearly.
    option in `meta/argument_specs.yml` and the "Role variables" table in `README.md` to match. The
    argument specification is validated at run time, so a default that has drifted from its spec fails
    the play instead of merely being out of date.
-8. If a pinned tool release (`workstation_uv_release`, or a similar version pin added later) changes,
-   update the matching `shasums` entry in `defaults/main.yml` alongside the version/URL variables.
-   Verify new checksums against the upstream project's published checksums before committing them.
+8. If a pinned tool release (`workstation_uv_release`, `workstation_opencode_release`,
+   `workstation_gh_release`, or a similar version pin added later) changes, update the matching
+   `shasums` entry in `defaults/main.yml`, for every architecture, alongside the version/URL variables.
+   Verify new checksums against the upstream project's published checksums before committing them: the
+   `.sha256` files for `uv`, `gh_<version>_checksums.txt` for the GitHub CLI. opencode publishes
+   checksums only for its desktop artifacts, so its values are computed from the downloaded CLI
+   archives; record them anyway, since they pin the artifact that was reviewed.
+   Extract release archives with `--no-same-owner`. They record the uid and gid of the upstream build
+   account, which `tar` restores when the play connects as root, leaving a binary owned by an account
+   that does not exist on the workstation.
 9. Add or update test coverage for the change:
    - `molecule/default/converge.yml` and `molecule/docker/molecule.yml` (which reuses
      `../default/prepare.yml`, `../default/converge.yml`, and `../default/verify.yml`) both exercise
@@ -78,6 +96,10 @@ documented clearly.
      `ansible.builtin.assert` pattern. Because verify is a separate `ansible-playbook` run, it cannot
      see `defaults/main.yml` or the `konstruktoid.hardening.*` defaults and instead mirrors the values
      it needs in its own `vars:` block. Update that block whenever a value it mirrors changes.
+   - `molecule/default/prepare.yml` simulates the state an earlier version of this role left behind,
+     so converge exercises its migration path rather than finding nothing to do: a curl-installed
+     `claude` symlink, and a system-wide `gh` installed from the upstream apt repository. Add to it when
+     a change has to clean up after a previous version, and assert the cleanup in `verify.yml`.
    - Assertions that depend on a running init system (`systemd_service` state, timers) must stay gated
      on `ansible_facts.virtualization_type not in ["container", "docker", "podman"]`, since the
      `docker` scenario's container runs `sleep 1d` as PID 1 rather than systemd.
@@ -188,9 +210,11 @@ first place.
       needed
 - [ ] `meta/argument_specs.yml` matches `defaults/main.yml` (same option names, types, and defaults)
 - [ ] `README.md` "Role variables" table matches `defaults/main.yml`
-- [ ] `shasums` in `defaults/main.yml` updated if a pinned tool release changed, with checksums
-      verified against upstream
+- [ ] `shasums` in `defaults/main.yml` updated for every architecture if a pinned tool release
+      changed, with checksums verified against upstream
 - [ ] `become` is not used more broadly than the specific task requires
+- [ ] Command-line clients are still installed per user, not system-wide, and `tasks/verify.yml` still
+      asserts their path, executability, ownership, and version
 - [ ] No user or system information committed: inventories, host vars, templates, and any captured
       lint or molecule output use placeholder hosts and addresses, with no real hostname, home
       directory path, username, or internal IP

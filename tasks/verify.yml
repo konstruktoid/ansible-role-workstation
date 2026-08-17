@@ -1,0 +1,129 @@
+---
+# Verification of the command-line clients the role installs, run after the
+# installs so that a failed download, a checksum mismatch, an archive whose
+# layout changed upstream, or a binary that cannot execute on this host fails
+# the play here rather than the first time the tool is used.
+#
+# Each client is checked the same way: the binary exists in the connecting
+# user's home directory and is owned by that account, and running it reports the
+# expected version. The ownership assertions are what keep the "installed for
+# one user, not system-wide" property from regressing silently.
+#
+# Skipped in check mode, where the installs these assertions depend on have not
+# run.
+- name: Verify the installed command-line clients
+  become: false
+  when:
+    - not ansible_check_mode
+  block:
+    - name: Verify the GitHub CLI
+      when:
+        - workstation_gh_install | bool
+      block:
+        - name: Stat the GitHub CLI binary
+          ansible.builtin.stat:
+            path: "{{ ansible_facts.env.HOME }}/.local/bin/gh"
+          register: workstation_gh_verify_stat
+
+        - name: Assert the GitHub CLI is installed for the connecting user
+          ansible.builtin.assert:
+            that:
+              - workstation_gh_verify_stat.stat.exists
+              - workstation_gh_verify_stat.stat.executable
+              - workstation_gh_verify_stat.stat.pw_name | default("") == ansible_facts.user_id
+            success_msg: "gh is installed as {{ ansible_facts.user_id }} in {{ ansible_facts.env.HOME }}/.local/bin"
+            fail_msg: "gh is missing, not executable, or not owned by {{ ansible_facts.user_id }}"
+
+        - name: Get the version reported by the GitHub CLI
+          ansible.builtin.command:
+            cmd: "{{ ansible_facts.env.HOME }}/.local/bin/gh --version"
+          changed_when: false
+          register: workstation_gh_verify_version
+
+        - name: Assert the GitHub CLI reports the pinned release
+          ansible.builtin.assert:
+            that:
+              - workstation_gh_release in workstation_gh_verify_version.stdout
+            success_msg: "gh reports the pinned release {{ workstation_gh_release }}"
+            fail_msg: "gh does not report the pinned release {{ workstation_gh_release }}: {{ workstation_gh_verify_version.stdout }}"
+
+        - name: Stat a system-wide GitHub CLI
+          ansible.builtin.stat:
+            path: /usr/bin/gh
+          register: workstation_gh_verify_system_stat
+          when:
+            - workstation_gh_remove_apt | bool
+
+        - name: Assert no system-wide GitHub CLI remains
+          ansible.builtin.assert:
+            that:
+              - not workstation_gh_verify_system_stat.stat.exists
+            success_msg: no system-wide gh is installed
+            fail_msg: /usr/bin/gh still exists, so gh is installed system-wide as well as for the connecting user
+          when:
+            - workstation_gh_remove_apt | bool
+
+    - name: Verify the Claude Code CLI
+      when:
+        - workstation_claude_code_install | bool
+      block:
+        - name: Stat the Claude Code CLI binary
+          ansible.builtin.stat:
+            path: "{{ workstation_npm_global_prefix }}/bin/claude"
+          register: workstation_claude_code_verify_stat
+
+        - name: Assert the Claude Code CLI is installed for the connecting user
+          ansible.builtin.assert:
+            that:
+              - workstation_claude_code_verify_stat.stat.exists
+              - workstation_claude_code_verify_stat.stat.executable
+              - workstation_claude_code_verify_stat.stat.pw_name | default("") == ansible_facts.user_id
+            success_msg: "claude is installed as {{ ansible_facts.user_id }} in {{ workstation_npm_global_prefix }}/bin"
+            fail_msg: "claude is missing, not executable, or not owned by {{ ansible_facts.user_id }}"
+
+        # Unlike gh and opencode, Claude Code is installed from npm rather than
+        # from a pinned release archive, so there is no expected version to
+        # compare against; that the CLI runs and reports one is the assertion.
+        - name: Get the version reported by the Claude Code CLI
+          ansible.builtin.command:
+            cmd: "{{ workstation_npm_global_prefix }}/bin/claude --version"
+          changed_when: false
+          register: workstation_claude_code_verify_version
+
+        - name: Assert the Claude Code CLI reports a version
+          ansible.builtin.assert:
+            that:
+              - workstation_claude_code_verify_version.stdout | length > 0
+            success_msg: "claude reports version {{ workstation_claude_code_verify_version.stdout }}"
+            fail_msg: claude ran but reported no version
+
+    - name: Verify opencode
+      when:
+        - workstation_opencode_install | bool
+      block:
+        - name: Stat the opencode binary
+          ansible.builtin.stat:
+            path: "{{ ansible_facts.env.HOME }}/.local/bin/opencode"
+          register: workstation_opencode_verify_stat
+
+        - name: Assert opencode is installed for the connecting user
+          ansible.builtin.assert:
+            that:
+              - workstation_opencode_verify_stat.stat.exists
+              - workstation_opencode_verify_stat.stat.executable
+              - workstation_opencode_verify_stat.stat.pw_name | default("") == ansible_facts.user_id
+            success_msg: "opencode is installed as {{ ansible_facts.user_id }} in {{ ansible_facts.env.HOME }}/.local/bin"
+            fail_msg: "opencode is missing, not executable, or not owned by {{ ansible_facts.user_id }}"
+
+        - name: Get the version reported by opencode
+          ansible.builtin.command:
+            cmd: "{{ ansible_facts.env.HOME }}/.local/bin/opencode --version"
+          changed_when: false
+          register: workstation_opencode_verify_version
+
+        - name: Assert opencode reports the pinned release
+          ansible.builtin.assert:
+            that:
+              - workstation_opencode_release in workstation_opencode_verify_version.stdout
+            success_msg: "opencode reports the pinned release {{ workstation_opencode_release }}"
+            fail_msg: "opencode does not report the pinned release {{ workstation_opencode_release }}: {{ workstation_opencode_verify_version.stdout }}"

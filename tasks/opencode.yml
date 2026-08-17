@@ -1,0 +1,50 @@
+---
+- name: Ensure ~/.local/bin exists
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.local/bin"
+    state: directory
+    mode: "0755"
+
+- name: Ensure ~/.cache exists
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.cache"
+    state: directory
+    mode: "0700"
+
+- name: Get installed opencode version
+  ansible.builtin.command:
+    cmd: "{{ ansible_facts.env.HOME }}/.local/bin/opencode --version"
+  register: workstation_opencode_version_check
+  changed_when: false
+  failed_when: false
+
+# The glibc, non-baseline archive: Ubuntu Resolute is a glibc distribution, and
+# baseline builds exist only for x86-64 CPUs without the newer instruction set
+# extensions the default build assumes.
+- name: Install opencode {{ workstation_opencode_release }}
+  when: workstation_opencode_release not in workstation_opencode_version_check.stdout
+  block:
+    - name: Download opencode {{ workstation_opencode_release }}
+      ansible.builtin.get_url:
+        url: "{{ workstation_opencode_url }}/opencode-linux-{{ workstation_opencode_arch }}.tar.gz"
+        dest: "{{ ansible_facts.env.HOME }}/.cache/opencode-{{ workstation_opencode_release }}.tar.gz"
+        checksum: "sha256:{{ shasums.workstation_opencode_release[workstation_opencode_arch] }}"
+        mode: "0644"
+
+    # --no-same-owner because the archive records the uid and gid of the
+    # upstream build account, which tar would otherwise restore when the play
+    # connects as root, leaving the binary owned by an account that does not
+    # exist on the workstation.
+    - name: Extract opencode into ~/.local/bin
+      ansible.builtin.unarchive:
+        src: "{{ ansible_facts.env.HOME }}/.cache/opencode-{{ workstation_opencode_release }}.tar.gz"
+        dest: "{{ ansible_facts.env.HOME }}/.local/bin"
+        extra_opts:
+          - --no-same-owner
+        remote_src: true
+        mode: "0755"
+
+    - name: Remove downloaded opencode archive
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.cache/opencode-{{ workstation_opencode_release }}.tar.gz"
+        state: absent
