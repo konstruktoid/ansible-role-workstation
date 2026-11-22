@@ -20,8 +20,8 @@
 
 - name: Install uv {{ workstation_uv_release }}
   # The reported version is compared as a whole token rather than with `in`,
-  # which matches substrings: a pinned 0.11.3 would look installed when the
-  # binary on disk reports 0.11.32.
+  # which matches substrings: a pinned 0.13.1 would look installed when the
+  # binary on disk reports 0.13.10.
   when: >-
     workstation_uv_version_check.stdout
     | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_uv_release

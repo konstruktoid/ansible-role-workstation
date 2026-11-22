@@ -23,9 +23,9 @@
       - docker-ce
       - docker-ce-cli
       - docker-compose-plugin
-    workstation_uv_release: "0.11.32"
-    workstation_opencode_release: "1.18.18"
-    workstation_gh_release: "2.97.0"
+    workstation_uv_release: "0.13.9"
+    workstation_opencode_release: "1.19.6"
+    workstation_gh_release: "2.105.0"
     workstation_npm_global_prefix: "{{ ansible_facts.env.HOME }}/.local"
     workstation_copilot_vim_dest: "{{ ansible_facts.env.HOME }}/.config/nvim/pack/github/start/copilot.vim"
     workstation_deleted_users:
@@ -42,13 +42,13 @@
     workstation_journald_forwardtosyslog: false
     workstation_rsyslog_filecreatemode: "0640"
     workstation_apt_hardening_settings:
-      - 'Acquire::AllowDowngradeToInsecureRepositories "false";'
-      - 'Acquire::AllowInsecureRepositories "false";'
+      - 'Acquire::AllowDowngradeToInsecureRepositories "0";'
+      - 'Acquire::AllowInsecureRepositories "0";'
       - 'Acquire::http::AllowRedirect "false";'
       - 'APT::Get::AllowUnauthenticated "false";'
       - 'APT::Get::AutomaticRemove "true";'
-      - 'APT::Install-Recommends "false";'
-      - 'APT::Install-Suggests "false";'
+      - 'APT::Install-Recommends "0";'
+      - 'APT::Install-Suggests "0";'
       - 'APT::Periodic::AutocleanInterval "7";'
       - 'Unattended-Upgrade::Remove-Unused-Dependencies "true";'
       - 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";'
@@ -117,7 +117,7 @@
       changed_when: false
       register: workstation_uv_version_check
       # Matched as a whole token rather than with `in`, which matches
-      # substrings: a pinned 0.11.3 would pass against a reported 0.11.32.
+      # substrings: a pinned 0.13.1 would pass against a reported 0.13.10.
       failed_when: >-
         workstation_uv_version_check.stdout
         | regex_search('[0-9]+\.[0-9]+\.[0-9]+') != workstation_uv_release

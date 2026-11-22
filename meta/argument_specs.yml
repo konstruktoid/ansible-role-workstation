@@ -118,7 +118,7 @@ argument_specs:
         description: Architecture used to select the C(uv) release archive.
       workstation_uv_release:
         type: str
-        default: "0.11.32"
+        default: "0.13.9"
         description: Pinned C(uv) release.
       workstation_uv_url:
         type: str
@@ -150,7 +150,7 @@ argument_specs:
         description: Architecture used to select the C(opencode) release archive.
       workstation_opencode_release:
         type: str
-        default: "1.18.18"
+        default: "1.19.6"
         description: Pinned C(opencode) release.
       workstation_opencode_url:
         type: str
@@ -166,7 +166,7 @@ argument_specs:
         description: Architecture used to select the GitHub CLI release archive.
       workstation_gh_release:
         type: str
-        default: "2.97.0"
+        default: "2.105.0"
         description: Pinned GitHub CLI release.
       workstation_gh_url:
         type: str
