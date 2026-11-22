@@ -118,7 +118,7 @@ argument_specs:
         description: Architecture used to select the C(uv) release archive.
       workstation_uv_release:
         type: str
-        default: "0.11.32"
+        default: "0.13.9"
         description: Pinned C(uv) release.
       workstation_uv_url:
         type: str
@@ -150,7 +150,7 @@ argument_specs:
         description: Architecture used to select the C(opencode) release archive.
       workstation_opencode_release:
         type: str
-        default: "1.18.18"
+        default: "1.19.6"
         description: Pinned C(opencode) release.
       workstation_opencode_url:
         type: str
@@ -166,7 +166,7 @@ argument_specs:
         description: Architecture used to select the GitHub CLI release archive.
       workstation_gh_release:
         type: str
-        default: "2.97.0"
+        default: "2.105.0"
         description: Pinned GitHub CLI release.
       workstation_gh_url:
         type: str
@@ -198,14 +198,14 @@ argument_specs:
         type: dict
         default:
           workstation_uv_release:
-            aarch64: "4d4fa08d95b06642e5800df6a22bd71455f23f988269e18da2847971d8c0bf31"
-            x86_64: "aab924fd522efd06f1c5f3b93a243864fc453132c94b2dc49f1371b528a4b967"
+            aarch64: "0797542018e541a9288855df555c8077eed06f7a47d206362030480e8ecc9f3d"
+            x86_64: "a7fbaff2b9a271d85c1bdb540941090fd1ce011797b4abeb48e4dcd39c2471d5"
           workstation_opencode_release:
-            arm64: "dcb1b5ec5687b43f87749560021f9203f3809e0ce5ae44ff9be8ae17083fe4ba"
-            x64: "0cddc222418b8553669905a8980c0cda7088f00da24d83d6ac76b01c9fdb2aaf"
+            arm64: "5b68c1f4c5e75b4134e664cc8f36d634d64208d4fcfe5bcf3b48bab699c2dbac"
+            x64: "47734e08968b30cc22a0bffb6d9feeed76ad4aa743213a12122040392d09a057"
           workstation_gh_release:
-            amd64: "a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112"
-            arm64: "73ea440ecad9c9e284429997ee6f93577bc6f7bc6fba357ef62c53ad8fb641a5"
+            amd64: "79e7ab5db738c48777b696e374f8b428f0647debfb424f44d2f426370407fe2f"
+            arm64: "b1278c75107423d818f1937fd92cafc9e5e9b606631568f68d7fb816f5885a02"
         description:
           - Checksums for pinned tool releases, keyed by variable name and then architecture. Used to
             verify downloaded release archives before extracting them.

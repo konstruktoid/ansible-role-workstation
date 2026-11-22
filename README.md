@@ -29,7 +29,7 @@ accounts `konstruktoid.hardening.delete_users` removes.
 This repository includes a ready-to-run `playbook.yml` and `inventory.ini` that apply the role to the
 local machine over the `local` connection plugin, so no SSH access or remote target is required.
 
-1. Install Ansible-core 2.18 or later and the collections listed under Requirements.
+1. Install Ansible-core 2.19 or later and the collections listed under Requirements.
 2. Review `defaults/main.yml` and override any variable that does not match the target account or
    the intended set of hardening roles and tools.
 3. Run the role against the local machine:
@@ -97,7 +97,7 @@ entry, so no password prompt is ever produced.
 
 ## Requirements
 
-- Ansible-core 2.18 or later.
+- Ansible-core 2.19 or later.
 - Ubuntu Resolute (26.04). The role does not gate its tasks on `ansible_facts.distribution`, so running
   it against another operating system produces undefined results.
 - An unprivileged account that can elevate through sudo, and `-K` on the command line to supply its
@@ -175,7 +175,7 @@ Defined in `defaults/main.yml` and validated at run time by the role argument sp
 | `workstation_docker_group_membership` | `true` | Add `workstation_user` to the `docker` group. |
 | `workstation_uv_install` | `true` | Install `uv`. |
 | `workstation_uv_arch` | `"{{ ansible_facts.architecture }}"` | Architecture used to select the `uv` release archive. |
-| `workstation_uv_release` | `"0.11.32"` | Pinned `uv` release. |
+| `workstation_uv_release` | `"0.13.9"` | Pinned `uv` release. |
 | `workstation_uv_url` | see `defaults/main.yml` | Base URL for the `uv` release archive. |
 | `workstation_npm_global_prefix` | `"{{ ansible_facts.env.HOME }}/.local"` | npm global install prefix, owned by the connecting user. |
 | `workstation_tox_install` | `true` | Install tox as a `uv` tool. |
@@ -183,11 +183,11 @@ Defined in `defaults/main.yml` and validated at run time by the role argument sp
 | `workstation_claude_code_package` | `"@anthropic-ai/claude-code"` | npm package installed for Claude Code. |
 | `workstation_opencode_install` | `true` | Install `opencode` into the connecting user's `~/.local/bin`. |
 | `workstation_opencode_arch` | see `defaults/main.yml` | Architecture used to select the `opencode` release archive. |
-| `workstation_opencode_release` | `"1.18.18"` | Pinned `opencode` release. |
+| `workstation_opencode_release` | `"1.19.6"` | Pinned `opencode` release. |
 | `workstation_opencode_url` | see `defaults/main.yml` | Base URL for the `opencode` release archive. |
 | `workstation_gh_install` | `true` | Install the GitHub CLI into the connecting user's `~/.local/bin`. |
 | `workstation_gh_arch` | see `defaults/main.yml` | Architecture used to select the GitHub CLI release archive. |
-| `workstation_gh_release` | `"2.97.0"` | Pinned GitHub CLI release. |
+| `workstation_gh_release` | `"2.105.0"` | Pinned GitHub CLI release. |
 | `workstation_gh_url` | see `defaults/main.yml` | Base URL for the GitHub CLI release archive. |
 | `workstation_gh_remove_apt` | `true` | Remove a system-wide `gh` apt package, repository, and keyring installed by an earlier version of this role. |
 | `workstation_copilot_vim_install` | `true` | Clone `copilot.vim`. |
