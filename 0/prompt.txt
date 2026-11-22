@@ -1,0 +1,39 @@
+create a new branch, update to use https://github.com/konstruktoid/ansible-collection-hardening/releases/tag/v0.6.0, then run all tests
+
+---
+
+update all dependencies as well, and ensure all installed tools are up-to-date
+
+---
+
+<task-notification>
+<task-id>bbdi6w1lo</task-id>
+<tool-use-id>toolu_01N6qNtDKcWU5BM4zVNnPNUV</tool-use-id>
+<output-file>/tmp/claude-1000/-home-tsj-Code-Git-ansible-role-workstation/2ae06493-8639-4789-a339-78b99fe744e7/tasks/bbdi6w1lo.output</output-file>
+<status>completed</status>
+<summary>Background command "S=/tmp/claude-1000/-home-tsj-Code-Git-ansible-role-workstation/2ae06493-8639-4789-a339-78b99fe744e7/scratchpad; for e in docker docker-upstream devel upstream; do tox -e $e &gt; $S/$e.log 2&gt;&amp;1; echo "$e exit=$?" &gt;&gt; $S/summary.txt; done" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>bsjuq9ahq</task-id>
+<tool-use-id>toolu_01XqkzQxh5jnhh339MVUYV12</tool-use-id>
+<output-file>/tmp/claude-1000/-home-tsj-Code-Git-ansible-role-workstation/2ae06493-8639-4789-a339-78b99fe744e7/tasks/bsjuq9ahq.output</output-file>
+<status>completed</status>
+<summary>Background command "S=/tmp/claude-1000/-home-tsj-Code-Git-ansible-role-workstation/2ae06493-8639-4789-a339-78b99fe744e7/scratchpad; mkdir -p $S/run1 &amp;&amp; mv $S/*.log $S/summary.txt $S/run1/; for e in docker docker-upstream devel upstream; do tox -r -e $e &gt; $S/$e.log 2&gt;&amp;1; echo "$e exit=$?" &gt;&gt; $S/summary.txt; done" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>bckdngyk6</task-id>
+<tool-use-id>toolu_01RagaW7k79XFvhHbLzsFhNE</tool-use-id>
+<output-file>/tmp/claude-1000/-home-tsj-Code-Git-ansible-role-workstation/2ae06493-8639-4789-a339-78b99fe744e7/tasks/bckdngyk6.output</output-file>
+<status>completed</status>
+<summary>Background command "S=/tmp/claude-1000/-home-tsj-Code-Git-ansible-role-workstation/2ae06493-8639-4789-a339-78b99fe744e7/scratchpad; mkdir -p $S/run2 &amp;&amp; mv $S/*.log $S/summary.txt $S/run2/; for e in docker docker-upstream devel upstream; do tox -e $e &gt; $S/$e.log 2&gt;&amp;1; echo "$e exit=$?" &gt;&gt; $S/summary.txt; done" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+commit this with a signed commit, minimal commit message and the push to PR
