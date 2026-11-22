@@ -29,7 +29,7 @@ accounts `konstruktoid.hardening.delete_users` removes.
 This repository includes a ready-to-run `playbook.yml` and `inventory.ini` that apply the role to the
 local machine over the `local` connection plugin, so no SSH access or remote target is required.
 
-1. Install Ansible-core 2.18 or later and the collections listed under Requirements.
+1. Install Ansible-core 2.19 or later and the collections listed under Requirements.
 2. Review `defaults/main.yml` and override any variable that does not match the target account or
    the intended set of hardening roles and tools.
 3. Run the role against the local machine:
@@ -97,7 +97,7 @@ entry, so no password prompt is ever produced.
 
 ## Requirements
 
-- Ansible-core 2.18 or later.
+- Ansible-core 2.19 or later.
 - Ubuntu Resolute (26.04). The role does not gate its tasks on `ansible_facts.distribution`, so running
   it against another operating system produces undefined results.
 - An unprivileged account that can elevate through sudo, and `-K` on the command line to supply its
